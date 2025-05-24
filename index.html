@@ -24,6 +24,11 @@
       padding: 6px 12px;
       font-size: 14px;
     }
+    .avg-label {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -41,6 +46,7 @@
     <button onclick="loadData('max')">Max</button>
   </div>
 
+  <div id="avgDisplay" class="avg-label"></div>
   <canvas id="stockChart" width="800"></canvas>
 
   <script>
@@ -77,6 +83,8 @@
       const avgLine = new Array(prices.length).fill(avg);
       const diffPercent = prices.map(p => ((p - avg) / avg * 100).toFixed(2));
 
+      document.getElementById("avgDisplay").innerText = `Average Price: ${avg.toFixed(2)}`;
+
       renderChart(labels, prices, avgLine, avg, diffPercent);
     }
 
@@ -101,7 +109,7 @@
               pointHoverRadius: 0
             },
             {
-              label: `Average Price: ${avgValue.toFixed(2)}`,
+              label: '',
               data: avgLine,
               borderColor: 'red',
               borderWidth: 2,
@@ -117,10 +125,21 @@
           plugins: {
             tooltip: {
               callbacks: {
+                label: function(context) {
+                  const value = context.parsed.y;
+                  return `Price: ${value}`;
+                },
                 afterLabel: function(context) {
                   const index = context.dataIndex;
                   const percent = diffPercent[index];
                   return `Change from Avg: ${percent}%`;
+                }
+              }
+            },
+            legend: {
+              labels: {
+                filter: function(item) {
+                  return item.text !== '';
                 }
               }
             }
