@@ -48,6 +48,7 @@
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
     let chart;
     let avgSlider;
+    let currentAvg = 0;
 
     async function loadData(period) {
       const intervalMap = {
@@ -77,6 +78,7 @@
       const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
       const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
 
+      currentAvg = avg;
       createSlider(avg, prices, labels);
     }
 
@@ -90,7 +92,10 @@
       avgSlider.step = 0.01;
       avgSlider.value = defaultAvg;
       avgSlider.style.width = '600px';
-      avgSlider.oninput = () => renderChart(labels, prices, parseFloat(avgSlider.value));
+      avgSlider.oninput = () => {
+        currentAvg = parseFloat(avgSlider.value);
+        renderChart(labels, prices, currentAvg);
+      };
 
       document.body.insertBefore(avgSlider, document.getElementById('stockChart'));
 
@@ -168,7 +173,9 @@
               }
             },
             datalabels: {
-              display: true,
+              display: function(context) {
+                return context.datasetIndex === 0;
+              },
               align: 'top',
               color: '#000',
               font: {
