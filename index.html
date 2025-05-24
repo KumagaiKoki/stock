@@ -25,11 +25,6 @@
       padding: 6px 12px;
       font-size: 14px;
     }
-    .avg-label {
-      color: red;
-      font-weight: bold;
-      margin-top: 10px;
-    }
   </style>
 </head>
 <body>
@@ -47,7 +42,6 @@
     <button onclick="loadData('max')">Max</button>
   </div>
 
-  <div id="avgDisplay" class="avg-label"></div>
   <canvas id="stockChart" width="800"></canvas>
 
   <script>
@@ -84,8 +78,6 @@
       const avgLine = new Array(prices.length).fill(avg);
       const diffPercent = prices.map(p => ((p - avg) / avg * 100).toFixed(2));
 
-      document.getElementById("avgDisplay").innerText = `Average Price: ${avg.toFixed(2)}`;
-
       renderChart(labels, prices, avgLine, avg, diffPercent);
     }
 
@@ -93,6 +85,8 @@
       const ctx = document.getElementById('stockChart').getContext('2d');
 
       if (chart) chart.destroy();
+
+      const middleIndex = Math.floor(avgLine.length / 2);
 
       chart = new Chart(ctx, {
         type: 'line',
@@ -110,14 +104,29 @@
               pointHoverRadius: 0
             },
             {
-              label: '',
+              label: `Avg: ${avgValue.toFixed(2)}`,
               data: avgLine,
               borderColor: 'red',
               borderWidth: 2,
               borderDash: [5, 5],
               fill: false,
               pointRadius: 0,
-              pointHoverRadius: 0
+              pointHoverRadius: 0,
+              datalabels: {
+                display: function(context) {
+                  return context.dataIndex === middleIndex;
+                },
+                align: 'right',
+                anchor: 'end',
+                color: 'red',
+                font: {
+                  weight: 'bold',
+                  size: 12
+                },
+                formatter: function() {
+                  return `Avg: ${avgValue.toFixed(2)}`;
+                }
+              }
             }
           ]
         },
@@ -154,7 +163,7 @@
                   const index = context.dataIndex;
                   return `${diffPercent[index]}%`;
                 }
-                return '';
+                return null;
               }
             }
           },
