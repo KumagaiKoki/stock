@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Apple 株価チャート（Twelve Data）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <style>
     body {
       background: #f5f5f5;
@@ -126,13 +127,10 @@
             tooltip: {
               callbacks: {
                 label: function(context) {
-                  const value = context.parsed.y;
-                  return `Price: ${value}`;
-                },
-                afterLabel: function(context) {
                   const index = context.dataIndex;
+                  const value = context.parsed.y;
                   const percent = diffPercent[index];
-                  return `Change from Avg: ${percent}%`;
+                  return `Price: ${value} / Change from Avg: ${percent}%`;
                 }
               }
             },
@@ -141,6 +139,22 @@
                 filter: function(item) {
                   return item.text !== '';
                 }
+              }
+            },
+            datalabels: {
+              display: true,
+              align: 'top',
+              color: '#000',
+              font: {
+                weight: 'bold',
+                size: 10
+              },
+              formatter: function(value, context) {
+                if (context.datasetIndex === 0) {
+                  const index = context.dataIndex;
+                  return `${diffPercent[index]}%`;
+                }
+                return '';
               }
             }
           },
@@ -154,7 +168,8 @@
               beginAtZero: false
             }
           }
-        }
+        },
+        plugins: [ChartDataLabels]
       });
     }
 
