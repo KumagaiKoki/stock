@@ -1,141 +1,93 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>この株を買おう</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      background: #f5f5f5;
-      font-family: sans-serif;
-      text-align: center;
-      padding: 40px;
-    }
-    canvas {
-      background: #fff;
-      border: 1px solid #ccc;
-      margin-top: 30px;
-      width: 100%;
-      height: 300px; /* 任意に調整可能 */
-    }
-    .buttons {
-      margin-bottom: 20px;
-    }
-    button {
-      margin: 4px;
-      padding: 6px 12px;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-  <h1>AAPL</h1>
+<script>
+  const apiKey = '1KWLAIA54NHIIXWK'; 
+  let chart;
 
-  <div class="buttons">
-    <button onclick="loadData('1day')">1d</button>
-    <button onclick="loadData('1week')">1w</button>
-    <button onclick="loadData('1month')">1m</button>
-    <button onclick="loadData('3months')">3m</button>
-    <button onclick="loadData('6months')">6m</button>
-    <button onclick="loadData('1year')">1y</button>
-    <button onclick="loadData('2years')">2y</button>
-    <button onclick="loadData('5years')">5y</button>
-    <button onclick="loadData('max')">all</button>
-  </div>
+  async function loadData(period) {
+    const intervalMap = {
+      '1day': ['5min', 1],
+      '1week': ['30min', 7],
+      '1month': ['1day', 30],
+      '3months': ['1day', 90],
+      '6months': ['1day', 180],
+      '1year': ['1day', 365],
+      '2years': ['1week', 104],
+      '5years': ['1month', 60],
+      'max': ['1month', 120]
+    };
 
-  <canvas id="stockChart"></canvas>
+    const [interval, points] = intervalMap[period];
+    const url = `https://api.twelvedata.com/time_series?symbol=AAPL&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
 
-  <script>
-    const apiKey = '1KWLAIA54NHIIXWK'; // ← ご自身の Twelve Data API キーに置き換えてください
-    let chart;
+    const res = await fetch(url);
+    const data = await res.json();
 
-    async function loadData(period) {
-      const intervalMap = {
-        '1day': ['5min', 1],
-        '1week': ['30min', 7],
-        '1month': ['1day', 30],
-        '3months': ['1day', 90],
-        '6months': ['1day', 180],
-        '1year': ['1day', 365],
-        '2years': ['1week', 104],
-        '5years': ['1month', 60],
-        'max': ['1month', 120]
-      };
+    console.log('API response:', data);
 
-      const [interval, points] = intervalMap[period];
-      const url = `https://api.twelvedata.com/time_series?symbol=AAPL&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
-
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (!data || !data.values) {
-        alert('データ取得失敗');
-        return;
-      }
-
-      const labels = data.values.map(entry => entry.datetime).reverse();
-      const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
-
-      const average = prices.reduce((sum, val) => sum + val, 0) / prices.length;
-      const avgLine = Array(prices.length).fill(average);
-
-      renderChart(labels, prices, avgLine, average);
+    if (!data || !data.values) {
+      alert('データ取得失敗: ' + (data.message || 'APIのレスポンスにvaluesがありません'));
+      return;
     }
 
-    function renderChart(labels, prices, avgLine, average) {
-      const ctx = document.getElementById('stockChart').getContext('2d');
+    const labels = data.values.map(entry => entry.datetime).reverse();
+    const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
 
-      if (chart) chart.destroy();
+    const average = prices.reduce((sum, val) => sum + val, 0) / prices.length;
+    const avgLine = Array(prices.length).fill(average);
 
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: 'AAPL 株価（終値）',
-              data: prices,
-              borderColor: 'rgba(75,192,192,1)',
-              borderWidth: 2,
-              pointRadius: 0, // ← 丸を消す
-              fill: false,
-              tension: 0.2
-            },
-            {
-              label: `平均株価: ${average.toFixed(2)} USD`,
-              data: avgLine,
-              borderColor: 'red',
-              borderWidth: 1,
-              borderDash: [5, 5], // ← 破線
-              pointRadius: 0,
-              fill: false
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              ticks: { maxTicksLimit: 10 }
-            },
-            y: {
-              beginAtZero: false
-            }
+    renderChart(labels, prices, avgLine, average);
+  }
+
+  function renderChart(labels, prices, avgLine, average) {
+    const ctx = document.getElementById('stockChart').getContext('2d');
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'AAPL 株価（終値）',
+            data: prices,
+            borderColor: 'rgba(75,192,192,1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            tension: 0.2
           },
-          plugins: {
-            legend: {
-              labels: {
-                boxWidth: 12
-              }
+          {
+            label: `平均株価: ${average.toFixed(2)} USD`,
+            data: avgLine,
+            borderColor: 'red',
+            borderWidth: 1,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: { maxTicksLimit: 10 }
+          },
+          y: {
+            beginAtZero: false
+          }
+        },
+        plugins: {
+          legend: {
+            labels: {
+              boxWidth: 12
             }
           }
         }
-      });
-    }
+      }
+    });
+  }
 
-    // 初期表示：1ヶ月
-    loadData('1month');
-  </script>
-</body>
-</html>
+  loadData('1month');
+</script>
