@@ -16,32 +16,59 @@
       border: 1px solid #ccc;
       margin-top: 30px;
     }
+    .buttons {
+      margin-top: 20px;
+    }
+    .buttons button {
+      margin: 4px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <h1>Apple 株価チャート（リアルタイムデータ）</h1>
+
+  <div class="buttons">
+    <button onclick="fetchStockData(1)">1日</button>
+    <button onclick="fetchStockData(5)">1週間</button>
+    <button onclick="fetchStockData(22)">1ヶ月</button>
+    <button onclick="fetchStockData(66)">3ヶ月</button>
+    <button onclick="fetchStockData(132)">6ヶ月</button>
+    <button onclick="fetchStockData(264)">1年間</button>
+    <button onclick="fetchStockData(528)">2年間</button>
+    <button onclick="fetchStockData(1320)">5年間</button>
+    <button onclick="fetchStockData('max')">全期間</button>
+  </div>
+
   <canvas id="stockChart" width="800" height="400"></canvas>
 
   <script>
-    const apiKey = 'R9VEZI09TLQ8VOFB';  // ← ご自身のAPIキーに置き換えてください
+    const apiKey = 'R9VEZI09TLQ8VOFB'; // ← ご自身のAPIキーに差し替えてください
+    let chart; // グローバル変数にして再描画時に破棄可能に
 
-    async function fetchStockData() {
-      const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=compact&apikey=${apiKey}`);
+    async function fetchStockData(days) {
+      const outputsize = (days === 'max' || days > 100) ? 'full' : 'compact';
+
+      const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=${outputsize}&apikey=${apiKey}`);
       const data = await response.json();
       const timeSeries = data['Time Series (Daily)'];
 
       if (!timeSeries) {
-        alert('データの取得に失敗しました。APIキーやアクセス回数制限をご確認ください。');
+        alert('データの取得に失敗しました。APIキーやアクセス制限をご確認ください。');
         return;
       }
 
       const labels = [];
       const prices = [];
 
-      // 最新の日付順に並び替え（直近30日分）
-      const sortedDates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b)).slice(-30);
+      const sortedDates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b));
 
-      sortedDates.forEach(date => {
+      // 日数制限
+      const targetDays = (days === 'max') ? sortedDates : sortedDates.slice(-days);
+
+      targetDays.forEach(date => {
         labels.push(date);
         prices.push(parseFloat(timeSeries[date]['4. close']));
       });
@@ -52,7 +79,11 @@
     function renderChart(labels, prices) {
       const ctx = document.getElementById('stockChart').getContext('2d');
 
-      new Chart(ctx, {
+      if (chart) {
+        chart.destroy(); // 既存チャート破棄
+      }
+
+      chart = new Chart(ctx, {
         type: 'line',
         data: {
           labels: labels,
@@ -69,7 +100,7 @@
           responsive: true,
           scales: {
             x: {
-              ticks: { maxTicksLimit: 10 }
+              ticks: { maxTicksLimit: 12 }
             },
             y: {
               beginAtZero: false
@@ -79,7 +110,8 @@
       });
     }
 
-    fetchStockData();
+    // 初期表示（1ヶ月）
+    fetchStockData(22);
   </script>
 </body>
 </html>
