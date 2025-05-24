@@ -27,25 +27,25 @@
   </style>
 </head>
 <body>
-  <h1>Apple 株価チャート（Twelve Data API）</h1>
+  <h1>Apple Stock Chart (Twelve Data API)</h1>
 
   <div class="buttons">
-    <button onclick="loadData('1day')">1日</button>
-    <button onclick="loadData('1week')">1週間</button>
-    <button onclick="loadData('1month')">1ヶ月</button>
-    <button onclick="loadData('3months')">3ヶ月</button>
-    <button onclick="loadData('6months')">6ヶ月</button>
-    <button onclick="loadData('1year')">1年間</button>
-    <button onclick="loadData('2years')">2年間</button>
-    <button onclick="loadData('5years')">5年間</button>
-    <button onclick="loadData('max')">全期間</button>
+    <button onclick="loadData('1day')">1Day</button>
+    <button onclick="loadData('1week')">1Week</button>
+    <button onclick="loadData('1month')">1Month</button>
+    <button onclick="loadData('3months')">3Months</button>
+    <button onclick="loadData('6months')">6Months</button>
+    <button onclick="loadData('1year')">1Year</button>
+    <button onclick="loadData('2years')">2Years</button>
+    <button onclick="loadData('5years')">5Years</button>
+    <button onclick="loadData('max')">All</button>
   </div>
 
   <canvas id="stockChart" width="800"></canvas>
 
   <script>
-    const apiKey = '8b308e8a86084cf2b1a7f4f56069685c'; // ← ご自身のTwelve Data APIキーに置き換え
-    let chart;  // グローバル変数でチャートを保持
+    const apiKey = '8b308e8a86084cf2b1a7f4f56069685c'; // ← Replace with your own Twelve Data API key
+    let chart;  // Hold chart in global variable
 
     async function loadData(period) {
       const intervalMap = {
@@ -57,7 +57,7 @@
         '1year': ['1day', 365],
         '2years': ['1week', 104],
         '5years': ['1month', 60],
-        'max': ['1month', 120] // max=約10年
+        'max': ['1month', 120] // max = ~10 years
       };
 
       const [interval, points] = intervalMap[period];
@@ -67,7 +67,7 @@
       const data = await res.json();
 
       if (!data || !data.values) {
-        alert('データ取得失敗');
+        alert('Failed to retrieve data');
         return;
       }
 
@@ -80,21 +80,21 @@
     function renderChart(labels, dataPoints) {
       const ctx = document.getElementById('stockChart').getContext('2d');
 
-      if (chart) chart.destroy(); // 既存チャートを削除
+      if (chart) chart.destroy(); // Destroy existing chart
 
       chart = new Chart(ctx, {
         type: 'line',
         data: {
           labels: labels,
           datasets: [{
-            label: 'AAPL 株価（終値）',
+            label: 'AAPL Stock Price (Close)',
             data: dataPoints,
             borderColor: 'rgba(75,192,192,1)',
             borderWidth: 2,
             fill: false,
             tension: 0.2,
-            pointRadius: 0, // 丸を非表示に設定
-            pointHoverRadius: 0 // ホバー時の丸も非表示
+            pointRadius: 0,
+            pointHoverRadius: 0
           }]
         },
         options: {
@@ -113,7 +113,7 @@
       });
     }
 
-    // 初期表示：1ヶ月
+    // Initial display: 1 Month
     loadData('1month');
   </script>
 </body>
