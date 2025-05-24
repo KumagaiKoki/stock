@@ -15,7 +15,6 @@
       background: #fff;
       border: 1px solid #ccc;
       margin-top: 30px;
-      height: 20px; /* 25%サイズ */
     }
     .buttons {
       margin-bottom: 20px;
@@ -42,7 +41,7 @@
     <button onclick="loadData('max')">全期間</button>
   </div>
 
-  <canvas id="stockChart" width="800"></canvas>
+  <canvas id="stockChart" style="height: 300px; width: 50px;"></canvas>
 
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c'; // ← ご自身のTwelve Data APIキーに置き換え
