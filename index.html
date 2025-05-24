@@ -101,7 +101,8 @@
         return;
       }
 
-      const labels = data.values.map(entry => entry.datetime).reverse();
+      const rawLabels = data.values.map(entry => entry.datetime).reverse();
+      const labels = formatLabels(rawLabels);
       const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
       const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
 
@@ -111,6 +112,28 @@
       latestPrices = prices;
       createSlider(avg, prices);
       renderChart(labels, prices, avg);
+    }
+
+    function formatLabels(datetimes) {
+      const years = datetimes.map(dt => dt.substring(0, 4));
+      const result = [];
+      let lastYear = null;
+
+      for (let i = 0; i < datetimes.length; i++) {
+        const [datePart] = datetimes[i].split(" ");
+        const [y, m, d] = datePart.split("-");
+        if (i === 0) {
+          result.push(`${y}/${m}/${d}`);
+          lastYear = y;
+        } else if (y === lastYear) {
+          result.push(`${m}/${d}`);
+        } else {
+          result.push(`${y}/${m}/${d}`);
+          lastYear = y;
+        }
+      }
+
+      return result;
     }
 
     function createSlider(defaultAvg, prices) {
