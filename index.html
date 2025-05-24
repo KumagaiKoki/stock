@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Apple 株価チャート（Twelve Data）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <style>
     body {
       background: #f5f5f5;
-      font-family: sans-serif;
+      font-family: Consolas, monospace;
       text-align: center;
       padding: 40px;
     }
@@ -115,7 +115,6 @@
     }
 
     function formatLabels(datetimes) {
-      const years = datetimes.map(dt => dt.substring(0, 4));
       const result = [];
       let lastYear = null;
 
@@ -158,31 +157,12 @@
     function updateCustomAvgLine(value) {
       if (!chart) return;
       const customLine = new Array(latestPrices.length).fill(value);
-      const diffPercent = latestPrices.map(p => ((p - value) / value * 100).toFixed(2));
-      const middleIndex = Math.floor(customLine.length / 2);
-
       chart.data.datasets[2].data = customLine;
 
-      chart.options.plugins.tooltip.callbacks.label = function(context) {
-        const index = context.dataIndex;
-        const price = context.parsed.y;
-        const percent = diffPercent[index];
-        return `Price: ${price} / Change from Custom Line: ${percent}%`;
-      };
+      const colors = latestPrices.map(p => p < value ? 'red' : 'green');
 
-      chart.options.plugins.datalabels.formatter = function(value, context) {
-        if (context.datasetIndex === 0) {
-          const index = context.dataIndex;
-          return `${diffPercent[index]}%`;
-        }
-        return null;
-      };
-
-      chart.options.plugins.datalabels.display = function(context) {
-        if (context.datasetIndex === 2) {
-          return context.dataIndex === middleIndex;
-        }
-        return context.datasetIndex === 0;
+      chart.data.datasets[0].segment = {
+        borderColor: ctx => colors[ctx.p0DataIndex] || 'black'
       };
 
       chart.update();
@@ -196,6 +176,7 @@
       const customLine = new Array(dataPoints.length).fill(avgValue);
       const diffPercent = dataPoints.map(p => ((p - avgValue) / avgValue * 100).toFixed(2));
       const middleIndex = Math.floor(dataPoints.length / 2);
+      const colors = dataPoints.map(p => p < avgValue ? 'red' : 'green');
 
       chart = new Chart(ctx, {
         type: 'line',
@@ -205,12 +186,15 @@
             {
               label: 'AAPL Stock Price (Close)',
               data: dataPoints,
-              borderColor: 'rgba(75,192,192,1)',
+              borderColor: 'black',
               borderWidth: 2,
               fill: false,
               tension: 0.2,
-              pointRadius: 0,
-              pointHoverRadius: 0
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              segment: {
+                borderColor: ctx => colors[ctx.p0DataIndex] || 'black'
+              }
             },
             {
               label: 'Average',
@@ -220,23 +204,7 @@
               borderDash: [5, 5],
               fill: false,
               pointRadius: 0,
-              pointHoverRadius: 0,
-              datalabels: {
-                display: function(context) {
-                  return context.dataIndex === middleIndex;
-                },
-                align: 'right',
-                anchor: 'end',
-                color: 'orange',
-                font: {
-                  family: 'Consolas, monospace',
-                  weight: 'bold',
-                  size: 12
-                },
-                formatter: function() {
-                  return `Avg: ${avgValue.toFixed(2)}`;
-                }
-              }
+              pointHoverRadius: 0
             },
             {
               label: 'Custom Line',
@@ -252,10 +220,12 @@
         },
         options: {
           responsive: true,
-          font: {
-            family: 'Consolas, monospace'
-          },
           plugins: {
+            legend: {
+              labels: {
+                font: { family: 'Consolas' }
+              }
+            },
             tooltip: {
               callbacks: {
                 label: function(context) {
@@ -263,22 +233,6 @@
                   const price = context.parsed.y;
                   const percent = diffPercent[index];
                   return `Price: ${price} / Change from Custom Line: ${percent}%`;
-                }
-              },
-              bodyFont: {
-                family: 'Consolas, monospace'
-              },
-              titleFont: {
-                family: 'Consolas, monospace'
-              }
-            },
-            legend: {
-              labels: {
-                font: {
-                  family: 'Consolas, monospace'
-                },
-                filter: function(item) {
-                  return item.text !== '';
                 }
               }
             },
@@ -289,4 +243,43 @@
               align: 'top',
               color: '#000',
               font: {
-                family: 'Consolas,
+                weight: 'bold',
+                size: 10,
+                family: 'Consolas'
+              },
+              formatter: function(value, context) {
+                if (context.datasetIndex === 0) {
+                  const index = context.dataIndex;
+                  return `${diffPercent[index]}%`;
+                }
+                return null;
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                maxTicksLimit: 10,
+                font: {
+                  family: 'Consolas'
+                }
+              }
+            },
+            y: {
+              beginAtZero: false,
+              ticks: {
+                font: {
+                  family: 'Consolas'
+                }
+              }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    loadData('1month');
+  </script>
+</body>
+</html>
