@@ -1,36 +1,71 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Apple 株価チャート（Twelve Data）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <style>
+    /* Apple風フォント */
     * {
-      font-family: monospace !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif !important;
     }
+
     body {
-      background: #f5f5f5;
+      background: #fafafa;
       text-align: center;
-      padding: 40px;
+      padding: 50px 20px;
+      color: #1d1d1f;
     }
+
+    h1 {
+      font-weight: 600;
+      font-size: 28px;
+      margin-bottom: 40px;
+      color: #1d1d1f;
+    }
+
     canvas {
-      background: #fff;
-      border: 1px solid #ccc;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow:
+        0 1px 3px rgb(0 0 0 / 0.1),
+        0 8px 24px rgb(0 0 0 / 0.12);
       margin-top: 30px;
+      max-width: 800px;
+      width: 100%;
+      height: 400px !important;
     }
+
     .buttons {
-      margin-bottom: 20px;
+      margin-bottom: 40px;
     }
+
     button {
-      margin: 4px;
-      padding: 6px 12px;
-      font-size: 14px;
+      margin: 4px 6px;
+      padding: 8px 18px;
+      font-size: 15px;
+      font-weight: 500;
+      background: #0071e3;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background-color 0.25s ease;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
     }
+    button:hover {
+      background: #004db3;
+    }
+    button:active {
+      background: #003a80;
+    }
+
     .slider-container {
       display: inline-block;
       height: 300px;
-      margin-right: 30px;
+      margin-right: 40px;
       position: relative;
       vertical-align: top;
     }
@@ -43,9 +78,15 @@
       left: 50%;
       top: 0;
       transform: translateX(-50%);
+      accent-color: #0071e3;
+      cursor: pointer;
     }
+
     .chart-container {
       display: inline-block;
+      vertical-align: top;
+      max-width: 820px;
+      width: 100%;
     }
   </style>
 </head>
@@ -67,7 +108,7 @@
   <div style="display: flex; justify-content: center; align-items: center;">
     <div class="slider-container" id="sliderContainer"></div>
     <div class="chart-container">
-      <canvas id="stockChart" width="800"></canvas>
+      <canvas id="stockChart" width="800" height="400"></canvas>
     </div>
   </div>
 
@@ -207,19 +248,24 @@
             {
               label: 'AAPL Stock Price (Close)',
               data: dataPoints,
-              borderColor: 'rgba(75,192,192,1)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.2,
+              borderColor: '#0071e3',
+              backgroundColor: 'rgba(0,113,227,0.2)',
+              borderWidth: 3,
+              fill: 'start',
+              tension: 0.3,
               pointRadius: 0,
-              pointHoverRadius: 0
+              pointHoverRadius: 6,
+              hoverBorderWidth: 2,
+              hoverBackgroundColor: '#0071e3',
+              hoverBorderColor: '#004db3',
+              cubicInterpolationMode: 'monotone',
             },
             {
               label: 'Average',
               data: avgLine,
-              borderColor: 'orange',
+              borderColor: '#ff9500',
               borderWidth: 2,
-              borderDash: [5, 5],
+              borderDash: [8, 4],
               fill: false,
               pointRadius: 0,
               pointHoverRadius: 0,
@@ -229,10 +275,10 @@
                 },
                 align: 'right',
                 anchor: 'end',
-                color: 'orange',
+                color: '#ff9500',
                 font: {
-                  weight: 'bold',
-                  size: 12
+                  weight: '600',
+                  size: 13
                 },
                 formatter: function() {
                   return `Avg: ${avgValue.toFixed(2)}`;
@@ -242,9 +288,9 @@
             {
               label: 'Custom Line',
               data: customLine,
-              borderColor: 'purple',
+              borderColor: '#5856d6',
               borderWidth: 2,
-              borderDash: [5, 5],
+              borderDash: [8, 4],
               fill: false,
               pointRadius: 0,
               pointHoverRadius: 0
@@ -253,8 +299,21 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false,
+          },
           plugins: {
             tooltip: {
+              enabled: true,
+              backgroundColor: 'rgba(28,28,30,0.95)',
+              titleColor: '#fff',
+              bodyColor: '#ddd',
+              cornerRadius: 8,
+              padding: 10,
+              displayColors: false,
               callbacks: {
                 label: function(context) {
                   const index = context.dataIndex;
@@ -266,20 +325,22 @@
             },
             legend: {
               labels: {
-                filter: function(item) {
-                  return item.text !== '';
+                color: '#1d1d1f',
+                font: {
+                  weight: '600',
+                  size: 14
                 }
               }
             },
             datalabels: {
-              display: function(context) {
-                return context.datasetIndex === 0;
+              color: '#333',
+              font: {
+                weight: '600',
+                size: 11
               },
               align: 'top',
-              color: '#000',
-              font: {
-                weight: 'bold',
-                size: 10
+              display: function(context) {
+                return context.datasetIndex === 0;
               },
               formatter: function(value, context) {
                 if (context.datasetIndex === 0) {
@@ -293,18 +354,31 @@
           scales: {
             x: {
               ticks: {
-                maxTicksLimit: 10,
+                color: '#6e6e73',
+                maxTicksLimit: 8,
+                font: {
+                  size: 12,
+                  weight: '500'
+                }
               },
-              title: {
-                display: true,
+              grid: {
+                display: false
               }
             },
             y: {
               beginAtZero: false,
               ticks: {
+                color: '#6e6e73',
+                font: {
+                  size: 12,
+                  weight: '500'
+                },
+                padding: 8,
+                // callback to add $ sign or round if you want
               },
-              title: {
-                display: true,
+              grid: {
+                color: '#d1d1d6',
+                borderDash: [5, 5]
               }
             }
           }
