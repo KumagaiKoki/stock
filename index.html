@@ -230,7 +230,8 @@
                 color: 'orange',
                 font: {
                   weight: 'bold',
-                  size: 12
+                  size: 12,
+                  family: 'Consolas'
                 },
                 formatter: function() {
                   return `Avg: ${avgValue.toFixed(2)}`;
@@ -253,6 +254,9 @@
           responsive: true,
           plugins: {
             tooltip: {
+              titleFont: { family: 'Consolas' },
+              bodyFont: { family: 'Consolas' },
+              footerFont: { family: 'Consolas' },
               callbacks: {
                 label: function(context) {
                   const index = context.dataIndex;
@@ -266,7 +270,8 @@
               labels: {
                 filter: function(item) {
                   return item.text !== '';
-                }
+                },
+                font: { family: 'Consolas' }
               }
             },
             datalabels: {
@@ -276,6 +281,7 @@
               align: 'top',
               color: '#000',
               font: {
+                family: 'Consolas',
                 weight: 'bold',
                 size: 10
               },
@@ -291,11 +297,25 @@
           scales: {
             x: {
               ticks: {
-                maxTicksLimit: 10
+                maxTicksLimit: 10,
+                font: { family: 'Consolas' }
+              },
+              title: {
+                display: true,
+                text: '日付',
+                font: { family: 'Consolas' }
               }
             },
             y: {
-              beginAtZero: false
+              beginAtZero: false,
+              ticks: {
+                font: { family: 'Consolas' }
+              },
+              title: {
+                display: true,
+                text: '価格',
+                font: { family: 'Consolas' }
+              }
             }
           }
         },
