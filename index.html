@@ -47,6 +47,7 @@
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
     let chart;
+    let avgSlider;
 
     async function loadData(period) {
       const intervalMap = {
@@ -75,17 +76,33 @@
       const labels = data.values.map(entry => entry.datetime).reverse();
       const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
       const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
-      const avgLine = new Array(prices.length).fill(avg);
-      const diffPercent = prices.map(p => ((p - avg) / avg * 100).toFixed(2));
 
-      renderChart(labels, prices, avgLine, avg, diffPercent);
+      createSlider(avg, prices, labels);
     }
 
-    function renderChart(labels, dataPoints, avgLine, avgValue, diffPercent) {
-      const ctx = document.getElementById('stockChart').getContext('2d');
+    function createSlider(defaultAvg, prices, labels) {
+      if (avgSlider) avgSlider.remove();
 
+      avgSlider = document.createElement('input');
+      avgSlider.type = 'range';
+      avgSlider.min = Math.min(...prices) * 0.9;
+      avgSlider.max = Math.max(...prices) * 1.1;
+      avgSlider.step = 0.01;
+      avgSlider.value = defaultAvg;
+      avgSlider.style.width = '600px';
+      avgSlider.oninput = () => renderChart(labels, prices, parseFloat(avgSlider.value));
+
+      document.body.insertBefore(avgSlider, document.getElementById('stockChart'));
+
+      renderChart(labels, prices, parseFloat(avgSlider.value));
+    }
+
+    function renderChart(labels, dataPoints, avgValue) {
+      const ctx = document.getElementById('stockChart').getContext('2d');
       if (chart) chart.destroy();
 
+      const avgLine = new Array(dataPoints.length).fill(avgValue);
+      const diffPercent = dataPoints.map(p => ((p - avgValue) / avgValue * 100).toFixed(2));
       const middleIndex = Math.floor(avgLine.length / 2);
 
       chart = new Chart(ctx, {
@@ -104,7 +121,7 @@
               pointHoverRadius: 0
             },
             {
-              label: `Avg: ${avgValue.toFixed(2)}`,
+              label: '',
               data: avgLine,
               borderColor: 'red',
               borderWidth: 2,
