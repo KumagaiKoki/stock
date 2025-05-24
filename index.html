@@ -8,7 +8,7 @@
   <style>
     body {
       background: #f5f5f5;
-      font-family: sans-serif;
+      font-family: Consolas, monospace;
       text-align: center;
       padding: 40px;
     }
@@ -24,6 +24,7 @@
       margin: 4px;
       padding: 6px 12px;
       font-size: 14px;
+      font-family: Consolas, monospace;
     }
     .slider-container {
       display: inline-block;
@@ -229,9 +230,9 @@
                 anchor: 'end',
                 color: 'orange',
                 font: {
+                  family: 'Consolas',
                   weight: 'bold',
-                  size: 12,
-                  family: 'Consolas'
+                  size: 12
                 },
                 formatter: function() {
                   return `Avg: ${avgValue.toFixed(2)}`;
@@ -254,24 +255,32 @@
           responsive: true,
           plugins: {
             tooltip: {
-              titleFont: { family: 'Consolas' },
-              bodyFont: { family: 'Consolas' },
-              footerFont: { family: 'Consolas' },
+              titleFont: {
+                family: 'Consolas'
+              },
+              bodyFont: {
+                family: 'Consolas'
+              },
+              footerFont: {
+                family: 'Consolas'
+              },
               callbacks: {
                 label: function(context) {
                   const index = context.dataIndex;
                   const price = context.parsed.y;
-                  const percent = diffPercent[index];
+                  const percent = ((price - customAvg) / customAvg * 100).toFixed(2);
                   return `Price: ${price} / Change from Custom Line: ${percent}%`;
                 }
               }
             },
             legend: {
               labels: {
+                font: {
+                  family: 'Consolas'
+                },
                 filter: function(item) {
                   return item.text !== '';
-                },
-                font: { family: 'Consolas' }
+                }
               }
             },
             datalabels: {
@@ -288,7 +297,7 @@
               formatter: function(value, context) {
                 if (context.datasetIndex === 0) {
                   const index = context.dataIndex;
-                  return `${diffPercent[index]}%`;
+                  return `${((value - customAvg) / customAvg * 100).toFixed(2)}%`;
                 }
                 return null;
               }
@@ -298,23 +307,29 @@
             x: {
               ticks: {
                 maxTicksLimit: 10,
-                font: { family: 'Consolas' }
+                font: {
+                  family: 'Consolas'
+                }
               },
               title: {
                 display: true,
-                text: '日付',
-                font: { family: 'Consolas' }
+                font: {
+                  family: 'Consolas'
+                }
               }
             },
             y: {
               beginAtZero: false,
               ticks: {
-                font: { family: 'Consolas' }
+                font: {
+                  family: 'Consolas'
+                }
               },
               title: {
                 display: true,
-                text: '価格',
-                font: { family: 'Consolas' }
+                font: {
+                  family: 'Consolas'
+                }
               }
             }
           }
