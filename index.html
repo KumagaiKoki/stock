@@ -25,6 +25,26 @@
       padding: 6px 12px;
       font-size: 14px;
     }
+    .slider-container {
+      display: inline-block;
+      height: 300px;
+      margin-right: 30px;
+      position: relative;
+      vertical-align: top;
+    }
+    .slider-container input[type=range] {
+      writing-mode: bt-lr; /* IE */
+      -webkit-appearance: slider-vertical; /* WebKit */
+      width: 8px;
+      height: 100%;
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+    }
+    .chart-container {
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
@@ -42,13 +62,20 @@
     <button onclick="loadData('max')">Max</button>
   </div>
 
-  <canvas id="stockChart" width="800"></canvas>
+  <div style="display: flex; justify-content: center; align-items: center;">
+    <div class="slider-container" id="sliderContainer"></div>
+    <div class="chart-container">
+      <canvas id="stockChart" width="800"></canvas>
+    </div>
+  </div>
 
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
     let chart;
     let avgSlider;
     let currentAvg = 0;
+    let latestLabels = [];
+    let latestPrices = [];
 
     async function loadData(period) {
       const intervalMap = {
@@ -79,11 +106,15 @@
       const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
 
       currentAvg = avg;
-      createSlider(avg, prices, labels);
+      latestLabels = labels;
+      latestPrices = prices;
+      createSlider(avg, prices);
+      renderChart(labels, prices, avg);
     }
 
-    function createSlider(defaultAvg, prices, labels) {
-      if (avgSlider) avgSlider.remove();
+    function createSlider(defaultAvg, prices) {
+      const container = document.getElementById('sliderContainer');
+      container.innerHTML = '';
 
       avgSlider = document.createElement('input');
       avgSlider.type = 'range';
@@ -91,14 +122,46 @@
       avgSlider.max = Math.max(...prices) * 1.1;
       avgSlider.step = 0.01;
       avgSlider.value = defaultAvg;
-      avgSlider.style.width = '600px';
+
       avgSlider.oninput = () => {
         currentAvg = parseFloat(avgSlider.value);
-        renderChart(labels, prices, currentAvg);
+        updateAvgLine(currentAvg);
       };
 
-      document.body.insertBefore(avgSlider, document.getElementById('stockChart'));
-      renderChart(labels, prices, parseFloat(avgSlider.value));
+      container.appendChild(avgSlider);
+    }
+
+    function updateAvgLine(avgValue) {
+      if (!chart) return;
+      const avgLine = new Array(latestPrices.length).fill(avgValue);
+      const diffPercent = latestPrices.map(p => ((p - avgValue) / avgValue * 100).toFixed(2));
+      const middleIndex = Math.floor(avgLine.length / 2);
+
+      chart.data.datasets[1].data = avgLine;
+
+      chart.options.plugins.tooltip.callbacks.label = function(context) {
+        const index = context.dataIndex;
+        const value = context.parsed.y;
+        const percent = diffPercent[index];
+        return `Price: ${value} / Change from Avg: ${percent}%`;
+      };
+
+      chart.options.plugins.datalabels.formatter = function(value, context) {
+        if (context.datasetIndex === 0) {
+          const index = context.dataIndex;
+          return `${diffPercent[index]}%`;
+        }
+        return null;
+      };
+
+      chart.options.plugins.datalabels.display = function(context) {
+        if (context.datasetIndex === 1) {
+          return context.dataIndex === middleIndex;
+        }
+        return context.datasetIndex === 0;
+      };
+
+      chart.update();
     }
 
     function renderChart(labels, dataPoints, avgValue) {
@@ -122,19 +185,7 @@
               fill: false,
               tension: 0.2,
               pointRadius: 0,
-              pointHoverRadius: 4,
-              datalabels: {
-                display: true,
-                align: 'top',
-                color: '#000',
-                font: {
-                  weight: 'bold',
-                  size: 10
-                },
-                formatter: function(value, context) {
-                  return `${diffPercent[context.dataIndex]}%`;
-                }
-              }
+              pointHoverRadius: 0
             },
             {
               label: '',
@@ -181,6 +232,24 @@
                 filter: function(item) {
                   return item.text !== '';
                 }
+              }
+            },
+            datalabels: {
+              display: function(context) {
+                return context.datasetIndex === 0;
+              },
+              align: 'top',
+              color: '#000',
+              font: {
+                weight: 'bold',
+                size: 10
+              },
+              formatter: function(value, context) {
+                if (context.datasetIndex === 0) {
+                  const index = context.dataIndex;
+                  return `${diffPercent[index]}%`;
+                }
+                return null;
               }
             }
           },
