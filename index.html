@@ -75,11 +75,12 @@
       const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
       const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
       const avgLine = new Array(prices.length).fill(avg);
+      const diffPercent = prices.map(p => ((p - avg) / avg * 100).toFixed(2));
 
-      renderChart(labels, prices, avgLine);
+      renderChart(labels, prices, avgLine, avg, diffPercent);
     }
 
-    function renderChart(labels, dataPoints, avgLine) {
+    function renderChart(labels, dataPoints, avgLine, avgValue, diffPercent) {
       const ctx = document.getElementById('stockChart').getContext('2d');
 
       if (chart) chart.destroy();
@@ -100,7 +101,7 @@
               pointHoverRadius: 0
             },
             {
-              label: 'Average Price',
+              label: `Average Price: ${avgValue.toFixed(2)}`,
               data: avgLine,
               borderColor: 'red',
               borderWidth: 2,
@@ -113,6 +114,17 @@
         },
         options: {
           responsive: true,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                afterLabel: function(context) {
+                  const index = context.dataIndex;
+                  const percent = diffPercent[index];
+                  return `Change from Avg: ${percent}%`;
+                }
+              }
+            }
+          },
           scales: {
             x: {
               ticks: {
