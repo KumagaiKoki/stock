@@ -2,33 +2,35 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>黒文字SVG表示</title>
+    <title>Apple株価表示</title>
     <style>
         body {
-            background-color: #f5f5f5;
+            background: #f5f5f5;
             font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            height: 100vh;
-            margin: 0;
-        }
-        h1 {
-            margin-bottom: 20px;
-        }
-        .svg-container {
-            background-color: white;
-            border: 1px solid #ccc;
-            padding: 20px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            padding: 40px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <h1>抽出された黒文字SVG</h1>
-    <div class="svg-container">
-        <object type="image/svg+xml" data="extracted_black_text.svg" width="800" height="600"></object>
+    <h1>Apple 株価情報（NASDAQ: AAPL）</h1>
+
+    <!-- TradingView ウィジェット -->
+    <div class="tradingview-widget-container">
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+      {
+        "symbol": "NASDAQ:AAPL",
+        "width": "350",
+        "height": "220",
+        "locale": "ja",
+        "dateRange": "1D",
+        "colorTheme": "light",
+        "isTransparent": false,
+        "autosize": false,
+        "largeChartUrl": ""
+      }
+      </script>
     </div>
+
 </body>
 </html>
