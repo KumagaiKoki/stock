@@ -15,7 +15,6 @@
       background: #fff;
       border: 1px solid #ccc;
       margin-top: 30px;
-      height: 100px; /* 25%サイズ */
     }
     .buttons {
       margin-bottom: 20px;
@@ -93,7 +92,9 @@
             borderColor: 'rgba(75,192,192,1)',
             borderWidth: 2,
             fill: false,
-            tension: 0.2
+            tension: 0.2,
+            pointRadius: 0, // 丸を非表示に設定
+            pointHoverRadius: 0 // ホバー時の丸も非表示
           }]
         },
         options: {
