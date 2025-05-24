@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Apple株価（リアルデータ）</title>
+  <title>Apple 株価チャート（Twelve Data）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -15,74 +15,73 @@
       background: #fff;
       border: 1px solid #ccc;
       margin-top: 30px;
-      height: 100px;
+      height: 100px; /* 25%サイズ */
     }
     .buttons {
-      margin-top: 20px;
+      margin-bottom: 20px;
     }
-    .buttons button {
+    button {
       margin: 4px;
-      padding: 8px 12px;
+      padding: 6px 12px;
       font-size: 14px;
-      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <h1>Apple 株価チャート（リアルタイムデータ）</h1>
+  <h1>Apple 株価チャート（Twelve Data API）</h1>
 
   <div class="buttons">
-    <button onclick="fetchStockData(1)">1日</button>
-    <button onclick="fetchStockData(5)">1週間</button>
-    <button onclick="fetchStockData(22)">1ヶ月</button>
-    <button onclick="fetchStockData(66)">3ヶ月</button>
-    <button onclick="fetchStockData(132)">6ヶ月</button>
-    <button onclick="fetchStockData(264)">1年間</button>
-    <button onclick="fetchStockData(528)">2年間</button>
-    <button onclick="fetchStockData(1320)">5年間</button>
-    <button onclick="fetchStockData('max')">全期間</button>
+    <button onclick="loadData('1day')">1日</button>
+    <button onclick="loadData('1week')">1週間</button>
+    <button onclick="loadData('1month')">1ヶ月</button>
+    <button onclick="loadData('3months')">3ヶ月</button>
+    <button onclick="loadData('6months')">6ヶ月</button>
+    <button onclick="loadData('1year')">1年間</button>
+    <button onclick="loadData('2years')">2年間</button>
+    <button onclick="loadData('5years')">5年間</button>
+    <button onclick="loadData('max')">全期間</button>
   </div>
 
-  <canvas id="stockChart" width="800" height="400"></canvas>
+  <canvas id="stockChart" width="800"></canvas>
 
   <script>
-    const apiKey = '1KWLAIA54NHIIXWK'; // ← ご自身のAPIキーに差し替えてください
-    let chart; // グローバル変数にして再描画時に破棄可能に
+    const apiKey = '8b308e8a86084cf2b1a7f4f56069685c'; // ← ご自身のTwelve Data APIキーに置き換え
+    let chart;  // グローバル変数でチャートを保持
 
-    async function fetchStockData(days) {
-      const outputsize = (days === 'max' || days > 100) ? 'full' : 'compact';
+    async function loadData(period) {
+      const intervalMap = {
+        '1day': ['5min', 1],
+        '1week': ['30min', 7],
+        '1month': ['1day', 30],
+        '3months': ['1day', 90],
+        '6months': ['1day', 180],
+        '1year': ['1day', 365],
+        '2years': ['1week', 104],
+        '5years': ['1month', 60],
+        'max': ['1month', 120] // max=約10年
+      };
 
-      const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=${outputsize}&apikey=${apiKey}`);
-      const data = await response.json();
-      const timeSeries = data['Time Series (Daily)'];
+      const [interval, points] = intervalMap[period];
 
-      if (!timeSeries) {
-        alert('データの取得に失敗しました。APIキーやアクセス制限をご確認ください。');
+      const url = `https://api.twelvedata.com/time_series?symbol=AAPL&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data || !data.values) {
+        alert('データ取得失敗');
         return;
       }
 
-      const labels = [];
-      const prices = [];
-
-      const sortedDates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b));
-
-      // 日数制限
-      const targetDays = (days === 'max') ? sortedDates : sortedDates.slice(-days);
-
-      targetDays.forEach(date => {
-        labels.push(date);
-        prices.push(parseFloat(timeSeries[date]['4. close']));
-      });
+      const labels = data.values.map(entry => entry.datetime).reverse();
+      const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
 
       renderChart(labels, prices);
     }
 
-    function renderChart(labels, prices) {
+    function renderChart(labels, dataPoints) {
       const ctx = document.getElementById('stockChart').getContext('2d');
 
-      if (chart) {
-        chart.destroy(); // 既存チャート破棄
-      }
+      if (chart) chart.destroy(); // 既存チャートを削除
 
       chart = new Chart(ctx, {
         type: 'line',
@@ -90,7 +89,7 @@
           labels: labels,
           datasets: [{
             label: 'AAPL 株価（終値）',
-            data: prices,
+            data: dataPoints,
             borderColor: 'rgba(75,192,192,1)',
             borderWidth: 2,
             fill: false,
@@ -101,7 +100,9 @@
           responsive: true,
           scales: {
             x: {
-              ticks: { maxTicksLimit: 12 }
+              ticks: {
+                maxTicksLimit: 10
+              }
             },
             y: {
               beginAtZero: false
@@ -111,8 +112,8 @@
       });
     }
 
-    // 初期表示（1ヶ月）
-    fetchStockData(22);
+    // 初期表示：1ヶ月
+    loadData('1month');
   </script>
 </body>
 </html>
