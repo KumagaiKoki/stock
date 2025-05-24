@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>AAPL 株価チャート（Yahoo Finance）</title>
+  <title>Apple株価（リアルデータ）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -19,45 +19,58 @@
   </style>
 </head>
 <body>
-  <h1>Apple 株価チャート（Yahoo Finance データ）</h1>
-  <canvas id="chart" width="800" height="400"></canvas>
+  <h1>Apple 株価チャート（リアルタイムデータ）</h1>
+  <canvas id="stockChart" width="800" height="400"></canvas>
 
   <script>
+    const apiKey = 'R9VEZI09TLQ8VOFB';  // ← ご自身のAPIキーに置き換えてください
+
     async function fetchStockData() {
-      const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1mo&interval=1d');
-      const json = await res.json();
-      const result = json.chart.result[0];
+      const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&outputsize=compact&apikey=${apiKey}`);
+      const data = await response.json();
+      const timeSeries = data['Time Series (Daily)'];
 
-      const timestamps = result.timestamp;
-      const prices = result.indicators.quote[0].close;
+      if (!timeSeries) {
+        alert('データの取得に失敗しました。APIキーやアクセス回数制限をご確認ください。');
+        return;
+      }
 
-      const labels = timestamps.map(ts => {
-        const date = new Date(ts * 1000);
-        return `${date.getMonth()+1}/${date.getDate()}`;
+      const labels = [];
+      const prices = [];
+
+      // 最新の日付順に並び替え（直近30日分）
+      const sortedDates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b)).slice(-30);
+
+      sortedDates.forEach(date => {
+        labels.push(date);
+        prices.push(parseFloat(timeSeries[date]['4. close']));
       });
 
       renderChart(labels, prices);
     }
 
-    function renderChart(labels, data) {
-      const ctx = document.getElementById('chart').getContext('2d');
+    function renderChart(labels, prices) {
+      const ctx = document.getElementById('stockChart').getContext('2d');
 
       new Chart(ctx, {
         type: 'line',
         data: {
           labels: labels,
           datasets: [{
-            label: '終値（USD）',
-            data: data,
+            label: 'AAPL 株価（終値）',
+            data: prices,
             borderColor: 'rgba(75,192,192,1)',
             borderWidth: 2,
             fill: false,
-            tension: 0.3
+            tension: 0.2
           }]
         },
         options: {
           responsive: true,
           scales: {
+            x: {
+              ticks: { maxTicksLimit: 10 }
+            },
             y: {
               beginAtZero: false
             }
