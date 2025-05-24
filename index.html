@@ -98,7 +98,6 @@
       };
 
       document.body.insertBefore(avgSlider, document.getElementById('stockChart'));
-
       renderChart(labels, prices, parseFloat(avgSlider.value));
     }
 
@@ -123,7 +122,19 @@
               fill: false,
               tension: 0.2,
               pointRadius: 0,
-              pointHoverRadius: 0
+              pointHoverRadius: 4,
+              datalabels: {
+                display: true,
+                align: 'top',
+                color: '#000',
+                font: {
+                  weight: 'bold',
+                  size: 10
+                },
+                formatter: function(value, context) {
+                  return `${diffPercent[context.dataIndex]}%`;
+                }
+              }
             },
             {
               label: '',
@@ -170,24 +181,6 @@
                 filter: function(item) {
                   return item.text !== '';
                 }
-              }
-            },
-            datalabels: {
-              display: function(context) {
-                return context.datasetIndex === 0;
-              },
-              align: 'top',
-              color: '#000',
-              font: {
-                weight: 'bold',
-                size: 10
-              },
-              formatter: function(value, context) {
-                if (context.datasetIndex === 0) {
-                  const index = context.dataIndex;
-                  return `${diffPercent[index]}%`;
-                }
-                return null;
               }
             }
           },
