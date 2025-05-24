@@ -8,7 +8,7 @@
   <style>
     body {
       background: #f5f5f5;
-      font-family: Consolas, monospace;
+      font-family: Consolas, 'Courier New', monospace;
       text-align: center;
       padding: 40px;
     }
@@ -16,6 +16,7 @@
       background: #fff;
       border: 1px solid #ccc;
       margin-top: 30px;
+      font-family: Consolas, 'Courier New', monospace;
     }
     .buttons {
       margin-bottom: 20px;
@@ -24,6 +25,7 @@
       margin: 4px;
       padding: 6px 12px;
       font-size: 14px;
+      font-family: Consolas, 'Courier New', monospace;
     }
     .slider-container {
       display: inline-block;
@@ -77,9 +79,6 @@
     let fixedAvg = 0;
     let latestLabels = [];
     let latestPrices = [];
-
-    // フォントを全体的にConsolasに設定
-    Chart.defaults.font.family = 'Consolas';
 
     async function loadData(period) {
       const intervalMap = {
@@ -231,6 +230,15 @@
               }
             },
             tooltip: {
+              titleFont: {
+                family: 'Consolas'
+              },
+              bodyFont: {
+                family: 'Consolas'
+              },
+              footerFont: {
+                family: 'Consolas'
+              },
               callbacks: {
                 label: function(context) {
                   const index = context.dataIndex;
@@ -263,9 +271,9 @@
           scales: {
             x: {
               ticks: {
+                maxTicksLimit: 10,
                 font: {
-                  family: 'Consolas',
-                  size: 12
+                  family: 'Consolas'
                 }
               }
             },
@@ -273,8 +281,7 @@
               beginAtZero: false,
               ticks: {
                 font: {
-                  family: 'Consolas',
-                  size: 12
+                  family: 'Consolas'
                 }
               }
             }
