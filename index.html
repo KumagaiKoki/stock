@@ -202,39 +202,45 @@
       if (!chart) return;
       const customLine = new Array(latestPrices.length).fill(value);
       const diffPercent = latestPrices.map(p => ((p - value) / value * 100).toFixed(2));
-    
+
       chart.data.datasets[2].data = customLine;
-    
-      // 20個所定間隔で表示
-      const interval = Math.max(1, Math.floor(latestPrices.length / 20));
-    
+
+      // 正しく20個所で表示されるように計算
+      const visibleIndexes = [];
+      const totalPoints = latestPrices.length;
+      const interval = Math.floor(totalPoints / 20);
+
+      for (let i = 0; i < 20; i++) {
+        const idx = Math.floor(i * interval);
+        if (idx < totalPoints) visibleIndexes.push(idx);
+      }
+
       chart.options.plugins.tooltip.callbacks.label = function(context) {
         const index = context.dataIndex;
         const price = context.parsed.y;
         const percent = diffPercent[index];
         return `Price: ${price} / Change from Custom Line: ${percent}%`;
       };
-    
+
       chart.options.plugins.datalabels.formatter = function(value, context) {
-        if (context.datasetIndex === 0) {
-          const index = context.dataIndex;
-          if (index % interval === 0) {
-            return `${diffPercent[index]}%`;
-          }
+        const index = context.dataIndex;
+        if (context.datasetIndex === 0 && visibleIndexes.includes(index)) {
+          return `${diffPercent[index]}%`;
         }
         return null;
       };
-    
+
       chart.options.plugins.datalabels.display = function(context) {
+        const index = context.dataIndex;
         if (context.datasetIndex === 0) {
-          return context.dataIndex % interval === 0;
+          return visibleIndexes.includes(index);
         }
         if (context.datasetIndex === 2) {
           return context.dataIndex === Math.floor(customLine.length / 2);
         }
         return false;
       };
-    
+
       chart.update();
     }
 
