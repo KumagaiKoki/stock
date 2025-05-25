@@ -354,8 +354,14 @@
           scales: {
             x: {
               ticks: {
+                callback: function(value, index, ticks) {
+                  // labelsのインデックスに基づいて10個だけ選ぶ
+                  const totalTicks = 10;
+                  const totalLabels = this.getLabelForValue ? this.getLabelForValue(index) : '';
+                  const interval = Math.floor(12 / totalTicks);
+                  return index % interval === 0 ? this.getLabelForValue(index) : '';
+                },
                 color: '#6e6e73',
-                maxTicksLimit: 8,
                 font: {
                   size: 12,
                   weight: '500'
