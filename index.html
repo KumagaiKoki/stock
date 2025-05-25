@@ -225,7 +225,15 @@
         if (context.datasetIndex === 2) {
           return context.dataIndex === middleIndex;
         }
-        return context.datasetIndex === 0;
+      
+        if (context.datasetIndex === 0) {
+          const total = chart.data.datasets[0].data.length;
+          if (total <= 20) return true;
+          const interval = Math.floor(total / 20);
+          return context.dataIndex % interval === 0;
+        }
+      
+        return false;
       };
 
       chart.update();
@@ -271,7 +279,17 @@
               pointHoverRadius: 0,
               datalabels: {
                 display: function(context) {
-                  return context.dataIndex === middleIndex;
+                  if (context.datasetIndex !== 0) return false;
+                
+                  const total = context.chart.data.datasets[0].data.length;
+                
+                  if (total <= 20) {
+                    return true;
+                  }
+                
+                  // 等間隔で20点のみ表示
+                  const interval = Math.floor(total / 20);
+                  return context.dataIndex % interval === 0;
                 },
                 align: 'right',
                 anchor: 'end',
