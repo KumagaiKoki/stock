@@ -240,170 +240,127 @@
     }
 
     function renderChart(labels, dataPoints, avgValue) {
-      const ctx = document.getElementById('stockChart').getContext('2d');
-      if (chart) chart.destroy();
+  const ctx = document.getElementById('stockChart').getContext('2d');
+  if (chart) chart.destroy();
 
-      const avgLine = new Array(dataPoints.length).fill(avgValue);
-      const customLine = new Array(dataPoints.length).fill(avgValue);
-      const diffPercent = dataPoints.map(p => ((p - avgValue) / avgValue * 100).toFixed(2));
-      const middleIndex = Math.floor(dataPoints.length / 2);
+  const customLine = new Array(dataPoints.length).fill(avgValue);
+  const middleIndex = Math.floor(dataPoints.length / 2);
 
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: 'AAPL Stock Price (Close)',
-              data: dataPoints,
-              borderColor: '#0071e3',
-              backgroundColor: 'rgba(0,113,227,0.2)',
-              borderWidth: 3,
-              fill: 'start',
-              tension: 0.3,
-              pointRadius: 0,
-              pointHoverRadius: 6,
-              hoverBorderWidth: 2,
-              hoverBackgroundColor: '#0071e3',
-              hoverBorderColor: '#004db3',
-              cubicInterpolationMode: 'monotone',
-            },
-            {
-              label: 'Average',
-              data: avgLine,
-              borderColor: '#ff9500',
-              borderWidth: 2,
-              borderDash: [8, 4],
-              fill: false,
-              pointRadius: 0,
-              pointHoverRadius: 0,
-              datalabels: {
-                display: function(context) {
-                  if (context.datasetIndex !== 0) return false;
-                
-                  const total = context.chart.data.datasets[0].data.length;
-                
-                  if (total <= 20) {
-                    return true;
-                  }
-                
-                  // 等間隔で20点のみ表示
-                  const interval = Math.floor(total / 20);
-                  return context.dataIndex % interval === 0;
-                },
-                align: 'right',
-                anchor: 'end',
-                color: '#ff9500',
-                font: {
-                  weight: '600',
-                  size: 13
-                },
-                formatter: function() {
-                  return `Avg: ${avgValue.toFixed(2)}`;
-                }
-              }
-            },
-            {
-              label: 'Custom Line',
-              data: customLine,
-              borderColor: '#5856d6',
-              borderWidth: 2,
-              borderDash: [8, 4],
-              fill: false,
-              pointRadius: 0,
-              pointHoverRadius: 0
-            }
-          ]
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'AAPL Stock Price (Close)',
+          data: dataPoints,
+          borderColor: '#0071e3',
+          backgroundColor: 'rgba(0,113,227,0.2)',
+          borderWidth: 3,
+          fill: 'start',
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          hoverBorderWidth: 2,
+          hoverBackgroundColor: '#0071e3',
+          hoverBorderColor: '#004db3',
+          cubicInterpolationMode: 'monotone',
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false,
-          },
-          plugins: {
-            tooltip: {
-              enabled: true,
-              backgroundColor: 'rgba(28,28,30,0.95)',
-              titleColor: '#fff',
-              bodyColor: '#ddd',
-              cornerRadius: 8,
-              padding: 10,
-              displayColors: false,
-              callbacks: {
-                label: function(context) {
-                  const index = context.dataIndex;
-                  const price = context.parsed.y;
-                  const percent = ((price - customAvg) / customAvg * 100).toFixed(2);
-                  return `Price: ${price} / Change from Custom Line: ${percent}%`;
-                }
-              }
-            },
-            legend: {
-              labels: {
-                color: '#1d1d1f',
-                font: {
-                  weight: '600',
-                  size: 14
-                }
-              }
-            },
-            datalabels: {
-              color: '#333',
-              font: {
-                weight: '600',
-                size: 11
-              },
-              align: 'top',
-              display: function(context) {
-                return context.datasetIndex === 0;
-              },
-              formatter: function(value, context) {
-                if (context.datasetIndex === 0) {
-                  const index = context.dataIndex;
-                  return `${((value - customAvg) / customAvg * 100).toFixed(2)}%`;
-                }
-                return null;
-              }
-            }
-          },
-          scales: {
-            x: {
-              ticks: {
-                color: '#6e6e73',
-                maxTicksLimit: 8,
-                font: {
-                  size: 12,
-                  weight: '500'
-                }
-              },
-              grid: {
-                display: false
-              }
-            },
-            y: {
-              beginAtZero: false,
-              ticks: {
-                color: '#6e6e73',
-                font: {
-                  size: 12,
-                  weight: '500'
-                },
-                padding: 8,
-                // callback to add $ sign or round if you want
-              },
-              grid: {
-                color: '#d1d1d6',
-                borderDash: [5, 5]
-              }
+        {
+          label: 'Custom Line',
+          data: customLine,
+          borderColor: '#5856d6',
+          borderWidth: 2,
+          borderDash: [8, 4],
+          fill: false,
+          pointRadius: 0,
+          pointHoverRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false,
+      },
+      plugins: {
+        tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(28,28,30,0.95)',
+          titleColor: '#fff',
+          bodyColor: '#ddd',
+          cornerRadius: 8,
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            label: function(context) {
+              const price = context.parsed.y;
+              return `Price: ${price}`;
             }
           }
         },
-        plugins: [ChartDataLabels]
-      });
-    }
+        legend: {
+          labels: {
+            color: '#1d1d1f',
+            font: {
+              weight: '600',
+              size: 14
+            }
+          }
+        },
+        datalabels: {
+          color: '#333',
+          font: {
+            weight: '600',
+            size: 11
+          },
+          align: 'top',
+          display: function(context) {
+            return false;
+          },
+          formatter: function() {
+            return null;
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#6e6e73',
+            maxTicksLimit: 8,
+            font: {
+              size: 12,
+              weight: '500'
+            }
+          },
+          grid: {
+            display: false
+          }
+        },
+        y: {
+          beginAtZero: false,
+          ticks: {
+            color: '#6e6e73',
+            font: {
+              size: 12,
+              weight: '500'
+            },
+            padding: 8
+          },
+          grid: {
+            color: '#d1d1d6',
+            borderDash: [5, 5]
+          }
+        }
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+
 
     loadData('1month');
   </script>
