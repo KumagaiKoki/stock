@@ -357,9 +357,7 @@
                 size: 11
               },
               align: 'top',
-              display: function(context) {
-                return context.datasetIndex === 0;
-              },
+              display: false,  // ← 初期状態は非表示
               formatter: function(value, context) {
                 if (context.datasetIndex === 0) {
                   const index = context.dataIndex;
@@ -367,8 +365,7 @@
                 }
                 return null;
               }
-            }
-          },
+            },
           scales: {
             x: {
               ticks: {
