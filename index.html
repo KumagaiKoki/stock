@@ -6,6 +6,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
   <style>
+    /* Apple風フォント */
     * {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
         Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif !important;
@@ -54,17 +55,31 @@
       transition: background-color 0.25s ease;
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
     }
-
     button:hover {
       background: #004db3;
     }
-
     button:active {
       background: #003a80;
     }
 
     .slider-container {
-      display: none; /* スライダーも非表示に */
+      display: inline-block;
+      height: 300px;
+      margin-right: 40px;
+      position: relative;
+      vertical-align: top;
+    }
+    .slider-container input[type=range] {
+      writing-mode: bt-lr;
+      -webkit-appearance: slider-vertical;
+      width: 8px;
+      height: 100%;
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+      accent-color: #0071e3;
+      cursor: pointer;
     }
 
     .chart-container {
@@ -100,6 +115,11 @@
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
     let chart;
+    let avgSlider;
+    let customAvg = 0;
+    let fixedAvg = 0;
+    let latestLabels = [];
+    let latestPrices = [];
 
     async function loadData(period) {
       const intervalMap = {
@@ -127,8 +147,14 @@
       const rawLabels = data.values.map(entry => entry.datetime).reverse();
       const labels = formatLabels(rawLabels);
       const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
+      const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
 
-      renderChart(labels, prices);
+      fixedAvg = avg;
+      customAvg = avg;
+      latestLabels = labels;
+      latestPrices = prices;
+      createSlider(avg, prices);
+      renderChart(labels, prices, avg);
     }
 
     function formatLabels(datetimes) {
@@ -153,9 +179,74 @@
       return result;
     }
 
-    function renderChart(labels, dataPoints) {
+    function createSlider(defaultAvg, prices) {
+      const container = document.getElementById('sliderContainer');
+      container.innerHTML = '';
+
+      avgSlider = document.createElement('input');
+      avgSlider.type = 'range';
+      avgSlider.min = Math.min(...prices);
+      avgSlider.max = Math.max(...prices);
+      avgSlider.step = 0.01;
+      avgSlider.value = defaultAvg;
+
+      avgSlider.oninput = () => {
+        customAvg = parseFloat(avgSlider.value);
+        updateCustomAvgLine(customAvg);
+      };
+
+      container.appendChild(avgSlider);
+    }
+
+    function updateCustomAvgLine(value) {
+      if (!chart) return;
+      const customLine = new Array(latestPrices.length).fill(value);
+      const diffPercent = latestPrices.map(p => ((p - value) / value * 100).toFixed(2));
+      const middleIndex = Math.floor(customLine.length / 2);
+
+      chart.data.datasets[2].data = customLine;
+
+      chart.options.plugins.tooltip.callbacks.label = function(context) {
+        const index = context.dataIndex;
+        const price = context.parsed.y;
+        const percent = diffPercent[index];
+        return `Price: ${price} / Change from Custom Line: ${percent}%`;
+      };
+
+      chart.options.plugins.datalabels.formatter = function(value, context) {
+        if (context.datasetIndex === 0) {
+          const index = context.dataIndex;
+          return `${diffPercent[index]}%`;
+        }
+        return null;
+      };
+
+      chart.options.plugins.datalabels.display = function(context) {
+        if (context.datasetIndex === 2) {
+          return context.dataIndex === middleIndex;
+        }
+      
+        if (context.datasetIndex === 0) {
+          const total = chart.data.datasets[0].data.length;
+          if (total <= 20) return true;
+          const interval = Math.floor(total / 20);
+          return context.dataIndex % interval === 0;
+        }
+      
+        return false;
+      };
+
+      chart.update();
+    }
+
+    function renderChart(labels, dataPoints, avgValue) {
       const ctx = document.getElementById('stockChart').getContext('2d');
       if (chart) chart.destroy();
+
+      const avgLine = new Array(dataPoints.length).fill(avgValue);
+      const customLine = new Array(dataPoints.length).fill(avgValue);
+      const diffPercent = dataPoints.map(p => ((p - avgValue) / avgValue * 100).toFixed(2));
+      const middleIndex = Math.floor(dataPoints.length / 2);
 
       chart = new Chart(ctx, {
         type: 'line',
@@ -176,6 +267,51 @@
               hoverBackgroundColor: '#0071e3',
               hoverBorderColor: '#004db3',
               cubicInterpolationMode: 'monotone',
+            },
+            {
+              label: 'Average',
+              data: avgLine,
+              borderColor: '#ff9500',
+              borderWidth: 2,
+              borderDash: [8, 4],
+              fill: false,
+              pointRadius: 0,
+              pointHoverRadius: 0,
+              datalabels: {
+                display: function(context) {
+                  if (context.datasetIndex !== 0) return false;
+                
+                  const total = context.chart.data.datasets[0].data.length;
+                
+                  if (total <= 20) {
+                    return true;
+                  }
+                
+                  // 等間隔で20点のみ表示
+                  const interval = Math.floor(total / 20);
+                  return context.dataIndex % interval === 0;
+                },
+                align: 'right',
+                anchor: 'end',
+                color: '#ff9500',
+                font: {
+                  weight: '600',
+                  size: 13
+                },
+                formatter: function() {
+                  return `Avg: ${avgValue.toFixed(2)}`;
+                }
+              }
+            },
+            {
+              label: 'Custom Line',
+              data: customLine,
+              borderColor: '#5856d6',
+              borderWidth: 2,
+              borderDash: [8, 4],
+              fill: false,
+              pointRadius: 0,
+              pointHoverRadius: 0
             }
           ]
         },
@@ -198,7 +334,10 @@
               displayColors: false,
               callbacks: {
                 label: function(context) {
-                  return `Price: ${context.parsed.y}`;
+                  const index = context.dataIndex;
+                  const price = context.parsed.y;
+                  const percent = ((price - customAvg) / customAvg * 100).toFixed(2);
+                  return `Price: ${price} / Change from Custom Line: ${percent}%`;
                 }
               }
             },
@@ -212,7 +351,22 @@
               }
             },
             datalabels: {
-              display: false
+              color: '#333',
+              font: {
+                weight: '600',
+                size: 11
+              },
+              align: 'top',
+              display: function(context) {
+                return context.datasetIndex === 0;
+              },
+              formatter: function(value, context) {
+                if (context.datasetIndex === 0) {
+                  const index = context.dataIndex;
+                  return `${((value - customAvg) / customAvg * 100).toFixed(2)}%`;
+                }
+                return null;
+              }
             }
           },
           scales: {
@@ -237,7 +391,8 @@
                   size: 12,
                   weight: '500'
                 },
-                padding: 8
+                padding: 8,
+                // callback to add $ sign or round if you want
               },
               grid: {
                 color: '#d1d1d6',
