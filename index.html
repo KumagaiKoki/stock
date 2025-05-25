@@ -243,6 +243,7 @@
       const ctx = document.getElementById('stockChart').getContext('2d');
       if (chart) chart.destroy();
 
+      const avgLine = new Array(dataPoints.length).fill(avgValue);
       const customLine = new Array(dataPoints.length).fill(avgValue);
       const diffPercent = dataPoints.map(p => ((p - avgValue) / avgValue * 100).toFixed(2));
       const middleIndex = Math.floor(dataPoints.length / 2);
@@ -267,7 +268,41 @@
               hoverBorderColor: '#004db3',
               cubicInterpolationMode: 'monotone',
             },
-            // 平均値の線のデータセットを削除しました
+            {
+              label: 'Average',
+              data: avgLine,
+              borderColor: '#ff9500',
+              borderWidth: 2,
+              borderDash: [8, 4],
+              fill: false,
+              pointRadius: 0,
+              pointHoverRadius: 0,
+              datalabels: {
+                display: function(context) {
+                  if (context.datasetIndex !== 0) return false;
+                
+                  const total = context.chart.data.datasets[0].data.length;
+                
+                  if (total <= 20) {
+                    return true;
+                  }
+                
+                  // 等間隔で20点のみ表示
+                  const interval = Math.floor(total / 20);
+                  return context.dataIndex % interval === 0;
+                },
+                align: 'right',
+                anchor: 'end',
+                color: '#ff9500',
+                font: {
+                  weight: '600',
+                  size: 13
+                },
+                formatter: function() {
+                  return `Avg: ${avgValue.toFixed(2)}`;
+                }
+              }
+            },
             {
               label: 'Custom Line',
               data: customLine,
