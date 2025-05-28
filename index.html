@@ -79,7 +79,7 @@
     ];
 
     let chart;
-    let cache = {}; // 銘柄別キャッシュ
+    let cache = {}; // 月足キャッシュ
 
     async function fetchInitialData() {
       for (const sym of symbols) {
@@ -96,39 +96,123 @@
       }
     }
 
-    function filterData(period) {
+    function getStartDate(period) {
       const now = new Date();
-      let startDate;
-      let interval = '1month';
-
+      const d = new Date(now);
       switch (period) {
-        case '1month': startDate = new Date(now.setMonth(now.getMonth() - 1)); interval = '1day'; break;
-        case '3months': startDate = new Date(now.setMonth(now.getMonth() - 3)); interval = '1day'; break;
-        case '6months': startDate = new Date(now.setMonth(now.getMonth() - 6)); interval = '1day'; break;
-        case '1year': startDate = new Date(now.setFullYear(now.getFullYear() - 1)); interval = '1day'; break;
-        case '2years': startDate = new Date(now.setFullYear(now.getFullYear() - 2)); break;
-        case '5years': startDate = new Date(now.setFullYear(now.getFullYear() - 5)); break;
-        case '10years': startDate = new Date(now.setFullYear(now.getFullYear() - 10)); break;
+        case '1month': d.setMonth(d.getMonth() - 1); break;
+        case '3months': d.setMonth(d.getMonth() - 3); break;
+        case '6months': d.setMonth(d.getMonth() - 6); break;
+        case '1year': d.setFullYear(d.getFullYear() - 1); break;
+        case '2years': d.setFullYear(d.getFullYear() - 2); break;
+        case '5years': d.setFullYear(d.getFullYear() - 5); break;
+        case '10years': d.setFullYear(d.getFullYear() - 10); break;
       }
+      return d.toISOString().split('T')[0];
+    }
 
-      const formattedStart = startDate.toISOString().split('T')[0];
+    async function filterData(period) {
+      const startDate = getStartDate(period);
+      const useDayData = ['1month', '3months', '6months', '1year', '2years'].includes(period);
 
-      const filtered = symbols.map(sym => {
-        const raw = cache[sym.name] || [];
-        const data = raw.filter(d => d.date >= formattedStart);
+      if (useDayData) {
+        const dayData = {};
+        for (const sym of symbols) {
+          const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1day&start_date=${startDate}&apikey=${apiKey}`;
+          try {
+            const res = await fetch(url);
+            const json = await res.json();
+            if (!json || !json.values) throw new Error(json.message || 'invalid day data');
+            const values = json.values.reverse();
+            dayData[sym.name] = values.map(v => ({ date: v.datetime, price: parseFloat(v.close) }));
+          } catch (e) {
+            console.warn(`日足取得失敗: ${sym.name}`, e);
+          }
+        }
+
+        // 粒度変換
+        let sampledData;
+        if (period === '1month' || period === '3months') {
+          sampledData = dayData; // 1日足そのまま
+        } else if (period === '6months') {
+          sampledData = sampleEveryNDays(dayData, 4); // 4日おき
+        } else if (period === '1year' || period === '2years') {
+          sampledData = sampleWeekly(dayData); // 週足相当（毎週月曜）
+        }
+
+        renderSampledData(sampledData);
+      } else {
+        const filtered = symbols.map(sym => {
+          const raw = cache[sym.name] || [];
+          const data = raw.filter(d => d.date >= startDate);
+          return {
+            symbol: sym.name,
+            labels: data.map(d => d.date),
+            prices: data.map(d => d.price)
+          };
+        });
+        if (filtered.every(d => d.prices.length === 0)) {
+          alert('データ取得失敗');
+          return;
+        }
+        renderChart(filtered[0].labels, filtered);
+      }
+    }
+
+    function sampleEveryNDays(dataSet, n) {
+      const result = {};
+      for (const sym in dataSet) {
+        const data = dataSet[sym];
+        result[sym] = data.filter((_, i) => i % n === 0);
+      }
+      return result;
+    }
+
+    function sampleWeekly(dataSet) {
+      const result = {};
+      for (const sym in dataSet) {
+        const data = dataSet[sym];
+        const weekly = [];
+        let lastWeek = -1;
+        for (const d of data) {
+          const dateObj = new Date(d.date);
+          const week = getWeekKey(dateObj);
+          if (week !== lastWeek) {
+            weekly.push(d);
+            lastWeek = week;
+          }
+        }
+        result[sym] = weekly;
+      }
+      return result;
+    }
+
+    function getWeekKey(date) {
+      const first = new Date(date.getFullYear(), 0, 1);
+      return Math.floor((date - first) / (7 * 24 * 60 * 60 * 1000));
+    }
+
+    function renderSampledData(dataSet) {
+      const labels = dataSet[symbols[0].name]?.map(d => d.date) || [];
+      const dataset = symbols.map(sym => {
+        const data = dataSet[sym.name] || [];
         return {
-          symbol: sym.name,
-          labels: data.map(d => d.date),
-          prices: data.map(d => d.price)
+          label: sym.name,
+          data: data.map(d => d.price),
+          borderColor: sym.color,
+          backgroundColor: sym.color + '33',
+          fill: false,
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 3
         };
       });
-
-      if (filtered.every(d => d.prices.length === 0)) {
-        alert('データが取得できませんでした。');
-        return;
-      }
-
-      renderChart(filtered[0].labels, filtered);
+      renderChart(labels, dataset.map((d, i) => ({
+        symbol: symbols[i].name,
+        labels,
+        prices: d.data
+      })));
     }
 
     function renderChart(labels, stockDataArray) {
@@ -168,9 +252,7 @@
               },
               labels: {
                 color: '#111',
-                font: {
-                  size: 14
-                },
+                font: { size: 14 },
                 usePointStyle: true
               }
             },
@@ -183,9 +265,7 @@
             }
           },
           scales: {
-            x: {
-              display: false
-            },
+            x: { display: false },
             y: {
               ticks: {
                 color: '#111',
@@ -205,7 +285,7 @@
       });
     }
 
-    // 初期処理
+    // 初期ロード
     fetchInitialData().then(() => filterData('1month'));
   </script>
 </body>
