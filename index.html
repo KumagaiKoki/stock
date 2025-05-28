@@ -2,170 +2,287 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Apple Stock Chart</title>
+  <title>Multi-Stock Chart</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    * {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-    }
-
     body {
-      background: #fafafa;
+      background: #f5f5f7;
       text-align: center;
       padding: 40px 20px;
-      color: #1d1d1f;
+      font-family: "Segoe UI", sans-serif;
     }
-
     h1 {
-      font-weight: 600;
-      font-size: 26px;
-      margin-bottom: 30px;
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
     }
-
     .buttons {
       margin-bottom: 20px;
     }
-
     button {
       margin: 4px;
       padding: 8px 16px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: bold;
       background: #0071e3;
       color: white;
       border: none;
-      border-radius: 10px;
+      border-radius: 6px;
       cursor: pointer;
-      transition: background-color 0.25s ease;
     }
-
     button:hover {
       background: #005bb5;
     }
-
-    canvas {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      max-width: 800px;
-      width: 100%;
-      height: 400px !important;
+    .chart-container {
+      max-width: 1000px;
       margin: auto;
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    canvas {
+      width: 100% !important;
+      height: 500px !important;
     }
   </style>
 </head>
 <body>
-
-  <h1>Apple Stock Chart</h1>
+  <h1>米国株価チャート</h1>
 
   <div class="buttons">
-    <button onclick="loadData('1month')">1 Month</button>
-    <button onclick="loadData('3months')">3 Months</button>
-    <button onclick="loadData('6months')">6 Months</button>
-    <button onclick="loadData('1year')">1 Year</button>
-    <button onclick="loadData('2years')">2 Years</button>
-    <button onclick="loadData('5years')">5 Years</button>
-    <button onclick="loadData('max')">Max</button>
+    <button onclick="filterData('1month')">1ヶ月</button>
+    <button onclick="filterData('3months')">3ヶ月</button>
+    <button onclick="filterData('6months')">6ヶ月</button>
+    <button onclick="filterData('1year')">1年</button>
+    <button onclick="filterData('2years')">2年</button>
+    <button onclick="filterData('5years')">5年</button>
   </div>
 
-  <canvas id="stockChart" width="800" height="400"></canvas>
+  <div class="chart-container">
+    <canvas id="stockChart"></canvas>
+  </div>
 
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
+
+    const symbols = [
+      { name: 'AAPL', color: '#0071e3' },
+      { name: 'NVDA', color: '#34a853' },
+      { name: 'AMZN', color: '#ff9900' },
+      { name: 'GOOGL', color: '#ea4335' },
+      { name: 'MSFT', color: '#6a5acd' },
+      { name: 'SOXL', color: '#00ced1' }
+    ];
+
     let chart;
+    let cache = {}; // 月足キャッシュ
 
-    async function loadData(period) {
-      const intervalMap = {
-        '1month': ['1day', 30],
-        '3months': ['1day', 90],
-        '6months': ['1day', 180],
-        '1year': ['1day', 365],
-        '2years': ['1week', 104],
-        '5years': ['1month', 60],
-        'max': ['1month', 120]
-      };
-
-      const [interval, points] = intervalMap[period];
-      const url = `https://api.twelvedata.com/time_series?symbol=AAPL&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
-
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (!data || !data.values) {
-        alert('データ取得に失敗しました');
-        return;
+    async function fetchInitialData() {
+      for (const sym of symbols) {
+        const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1month&outputsize=120&apikey=${apiKey}`;
+        try {
+          const res = await fetch(url);
+          const json = await res.json();
+          if (!json || !json.values) throw new Error(json.message || 'invalid data');
+          const values = json.values.reverse();
+          cache[sym.name] = values.map(v => ({ date: v.datetime, price: parseFloat(v.close) }));
+        } catch (e) {
+          console.warn(`取得失敗: ${sym.name}`, e);
+        }
       }
-
-      const labels = data.values.map(entry => entry.datetime).reverse();
-      const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
-
-      renderChart(labels, prices);
     }
 
-    function renderChart(labels, prices) {
+    function getStartDate(period) {
+      const now = new Date();
+      const d = new Date(now);
+      switch (period) {
+        case '1month': d.setMonth(d.getMonth() - 1); break;
+        case '3months': d.setMonth(d.getMonth() - 3); break;
+        case '6months': d.setMonth(d.getMonth() - 6); break;
+        case '1year': d.setFullYear(d.getFullYear() - 1); break;
+        case '2years': d.setFullYear(d.getFullYear() - 2); break;
+        case '5years': d.setFullYear(d.getFullYear() - 5); break;
+      }
+      return d.toISOString().split('T')[0];
+    }
+
+    async function filterData(period) {
+      const startDate = getStartDate(period);
+      const useDayData = ['1month', '3months', '6months', '1year', '2years'].includes(period);
+
+      if (useDayData) {
+        const dayData = {};
+        for (const sym of symbols) {
+          const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1day&start_date=${startDate}&apikey=${apiKey}`;
+          try {
+            const res = await fetch(url);
+            const json = await res.json();
+            if (!json || !json.values) throw new Error(json.message || 'invalid day data');
+            const values = json.values.reverse();
+            dayData[sym.name] = values.map(v => ({ date: v.datetime, price: parseFloat(v.close) }));
+          } catch (e) {
+            console.warn(`日足取得失敗: ${sym.name}`, e);
+          }
+        }
+
+        // 粒度変換
+        let sampledData;
+        if (period === '1month' || period === '3months') {
+          sampledData = dayData; // 1日足そのまま
+        } else if (period === '6months') {
+          sampledData = sampleEveryNDays(dayData, 4); // 4日おき
+        } else if (period === '1year' || period === '2years') {
+          sampledData = sampleWeekly(dayData); // 週足相当（毎週月曜）
+        }
+
+        renderSampledData(sampledData);
+      } else {
+        const filtered = symbols.map(sym => {
+          const raw = cache[sym.name] || [];
+          const data = raw.filter(d => d.date >= startDate);
+          return {
+            symbol: sym.name,
+            labels: data.map(d => d.date),
+            prices: data.map(d => d.price)
+          };
+        });
+        if (filtered.every(d => d.prices.length === 0)) {
+          alert('データ取得失敗');
+          return;
+        }
+        renderChart(filtered[0].labels, filtered);
+      }
+    }
+
+    function sampleEveryNDays(dataSet, n) {
+      const result = {};
+      for (const sym in dataSet) {
+        const data = dataSet[sym];
+        result[sym] = data.filter((_, i) => i % n === 0);
+      }
+      return result;
+    }
+
+    function sampleWeekly(dataSet) {
+      const result = {};
+      for (const sym in dataSet) {
+        const data = dataSet[sym];
+        const weekly = [];
+        let lastWeek = -1;
+        for (const d of data) {
+          const dateObj = new Date(d.date);
+          const week = getWeekKey(dateObj);
+          if (week !== lastWeek) {
+            weekly.push(d);
+            lastWeek = week;
+          }
+        }
+        result[sym] = weekly;
+      }
+      return result;
+    }
+
+    function getWeekKey(date) {
+      const first = new Date(date.getFullYear(), 0, 1);
+      return Math.floor((date - first) / (7 * 24 * 60 * 60 * 1000));
+    }
+
+    function renderSampledData(dataSet) {
+      const labels = dataSet[symbols[0].name]?.map(d => d.date) || [];
+      const dataset = symbols.map(sym => {
+        const data = dataSet[sym.name] || [];
+        return {
+          label: sym.name,
+          data: data.map(d => d.price),
+          borderColor: sym.color,
+          backgroundColor: sym.color + '33',
+          fill: false,
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 3
+        };
+      });
+      renderChart(labels, dataset.map((d, i) => ({
+        symbol: symbols[i].name,
+        labels,
+        prices: d.data
+      })));
+    }
+
+    function renderChart(labels, stockDataArray) {
       const ctx = document.getElementById('stockChart').getContext('2d');
       if (chart) chart.destroy();
 
       chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
-          datasets: [{
-            label: 'AAPL Close Price',
-            data: prices,
-            borderColor: '#0071e3',
-            backgroundColor: 'rgba(0, 113, 227, 0.2)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 0,
-            pointHoverRadius: 4
-          }]
+          labels,
+          datasets: stockDataArray.map(stock => {
+            const color = symbols.find(s => s.name === stock.symbol).color;
+            return {
+              label: stock.symbol,
+              data: stock.prices,
+              borderColor: color,
+              backgroundColor: color + '33',
+              borderWidth: 2,
+              fill: false,
+              tension: 0.3,
+              pointRadius: 0,
+              pointHoverRadius: 3
+            };
+          })
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: {
+              display: true,
+              onClick: (e, legendItem, legend) => {
+                const index = legendItem.datasetIndex;
+                const meta = chart.getDatasetMeta(index);
+                meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                chart.update();
+              },
               labels: {
-                color: '#1d1d1f',
-                font: { size: 14 }
+                color: '#111',
+                font: { size: 14 },
+                usePointStyle: true
               }
             },
             tooltip: {
+              mode: 'index',
+              intersect: false,
               callbacks: {
-                label: (context) => `Price: ${context.parsed.y}`
+                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
               }
             }
           },
           scales: {
-            x: {
-              display: false, // 横軸ラベルを非表示に
-              grid: { display: false }
-            },
+            x: { display: false },
             y: {
               ticks: {
-                color: '#6e6e73',
-                font: { size: 14 } // 潰れ防止
+                color: '#111',
+                font: { size: 14 }
               },
               grid: {
-                color: '#d1d1d6',
+                color: '#ccc',
                 borderDash: [4, 4]
               }
             }
           },
-          layout: {
-            padding: {
-              top: 10,
-              bottom: 10
-            }
+          interaction: {
+            mode: 'index',
+            intersect: false
           }
         }
       });
     }
 
-    loadData('1month');
+    // 初期ロード
+    fetchInitialData().then(() => filterData('1month'));
   </script>
 </body>
 </html>
