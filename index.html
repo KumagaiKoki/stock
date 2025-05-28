@@ -112,52 +112,75 @@
     }
 
     async function filterData(period) {
-      const startDate = getStartDate(period);
-      const useDayData = ['1month', '3months', '6months', '1year', '2years'].includes(period);
+  const startDate = getStartDate(period);
+  const useDayData = ['1month', '3months', '6months', '1year', '2years'].includes(period);
 
-      if (useDayData) {
-        const dayData = {};
-        for (const sym of symbols) {
-          const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1day&start_date=${startDate}&apikey=${apiKey}`;
-          try {
-            const res = await fetch(url);
-            const json = await res.json();
-            if (!json || !json.values) throw new Error(json.message || 'invalid day data');
-            const values = json.values.reverse();
-            dayData[sym.name] = values.map(v => ({ date: v.datetime, price: parseFloat(v.close) }));
-          } catch (e) {
-            console.warn(`日足取得失敗: ${sym.name}`, e);
-          }
-        }
-
-        // 粒度変換
-        let sampledData;
-        if (period === '1month' || period === '3months') {
-          sampledData = dayData; // 1日足そのまま
-        } else if (period === '6months') {
-          sampledData = sampleEveryNDays(dayData, 4); // 4日おき
-        } else if (period === '1year' || period === '2years') {
-          sampledData = sampleWeekly(dayData); // 週足相当（毎週月曜）
-        }
-
-        renderSampledData(sampledData);
-      } else {
-        const filtered = symbols.map(sym => {
-          const raw = cache[sym.name] || [];
-          const data = raw.filter(d => d.date >= startDate);
-          return {
-            symbol: sym.name,
-            labels: data.map(d => d.date),
-            prices: data.map(d => d.price)
-          };
-        });
-        if (filtered.every(d => d.prices.length === 0)) {
-          alert('データ取得失敗');
-          return;
-        }
-        renderChart(filtered[0].labels, filtered);
+  if (useDayData) {
+    const dayData = {};
+    await Promise.all(symbols.map(async (sym) => {
+      const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1day&start_date=${startDate}&apikey=${apiKey}`;
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        if (!json || !json.values) throw new Error(json.message || 'invalid day data');
+        const values = json.values.reverse();
+        dayData[sym.name] = values.map(v => ({ date: v.datetime, price: parseFloat(v.close) }));
+      } catch (e) {
+        console.warn(`日足取得失敗: ${sym.name}`, e);
+        dayData[sym.name] = []; // 空でも保持
       }
+    }));
+
+    // 粒度変換
+    let sampledData = {};
+    if (period === '1month' || period === '3months') {
+      sampledData = dayData;
+    } else if (period === '6months') {
+      sampledData = sampleEveryNDays(dayData, 4);
+    } else if (period === '1year' || period === '2years') {
+      sampledData = sampleWeekly(dayData);
     }
+
+    // 共通のラベル生成（最長の銘柄のラベルを基準に）
+    const labelSource = Object.values(sampledData).reduce((a, b) => (b.length > a.length ? b : a), []);
+    const labels = labelSource.map(d => d.date);
+
+    // データセット化
+    const stockDataArray = symbols.map(sym => {
+      const data = sampledData[sym.name] || [];
+      return {
+        symbol: sym.name,
+        labels: data.map(d => d.date),
+        prices: data.map(d => d.price)
+      };
+    }).filter(d => d.prices.length > 0);
+
+    if (stockDataArray.length === 0) {
+      alert('グラフ用のデータを取得できませんでした');
+      return;
+    }
+
+    renderChart(labels, stockDataArray);
+  } else {
+    // 月足キャッシュ使用
+    const filtered = symbols.map(sym => {
+      const raw = cache[sym.name] || [];
+      const data = raw.filter(d => d.date >= startDate);
+      return {
+        symbol: sym.name,
+        labels: data.map(d => d.date),
+        prices: data.map(d => d.price)
+      };
+    }).filter(d => d.prices.length > 0);
+
+    if (filtered.length === 0) {
+      alert('キャッシュからグラフデータを取得できませんでした');
+      return;
+    }
+
+    renderChart(filtered[0].labels, filtered);
+  }
+}
 
     function sampleEveryNDays(dataSet, n) {
       const result = {};
