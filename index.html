@@ -5,22 +5,17 @@
   <title>Multi-Stock Chart</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    * {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-    }
-
     body {
       background: #f5f5f7;
       text-align: center;
       padding: 40px 20px;
-      color: #1d1d1f;
+      font-family: "Segoe UI", sans-serif;
     }
 
     h1 {
       font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 30px;
+      font-weight: bold;
+      margin-bottom: 20px;
     }
 
     .buttons {
@@ -31,11 +26,11 @@
       margin: 4px;
       padding: 8px 16px;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: bold;
       background: #0071e3;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
     }
 
@@ -47,7 +42,7 @@
       max-width: 1000px;
       margin: auto;
       background: white;
-      border-radius: 12px;
+      border-radius: 10px;
       padding: 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
@@ -92,43 +87,51 @@
 
     let chart;
 
+    const intervalMap = {
+      '1month': ['1day', 30],
+      '3months': ['1day', 90],
+      '6months': ['1day', 180],
+      '1year': ['1day', 365],
+      '2years': ['1week', 104],
+      '5years': ['1month', 60],
+      'max': ['1month', 120]
+    };
+
     async function fetchStockData(symbol, interval, points) {
-      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!data || !data.values) throw new Error(`データ取得失敗: ${symbol}`);
-      const values = data.values.reverse();
-      return {
-        symbol,
-        labels: values.map(v => v.datetime),
-        prices: values.map(v => parseFloat(v.close))
-      };
+      try {
+        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data || !data.values) throw new Error(data.message || 'Invalid data');
+        const values = data.values.reverse();
+        return {
+          symbol,
+          labels: values.map(v => v.datetime),
+          prices: values.map(v => parseFloat(v.close))
+        };
+      } catch (err) {
+        console.warn(`取得失敗: ${symbol}`, err);
+        return null;
+      }
     }
 
     async function loadData(period) {
-      const intervalMap = {
-        '1month': ['1day', 30],
-        '3months': ['1day', 90],
-        '6months': ['1day', 180],
-        '1year': ['1day', 365],
-        '2years': ['1week', 104],
-        '5years': ['1month', 60],
-        'max': ['1month', 120]
-      };
-
       const [interval, points] = intervalMap[period];
 
-      try {
-        const allData = await Promise.all(
-          symbols.map(sym => fetchStockData(sym.name, interval, points))
-        );
+      const stockDataArray = [];
 
-        const labels = allData[0].labels;
-
-        renderChart(labels, allData);
-      } catch (err) {
-        alert('データの取得に失敗しました: ' + err.message);
+      for (const sym of symbols) {
+        const stock = await fetchStockData(sym.name, interval, points);
+        if (stock) stockDataArray.push(stock);
       }
+
+      if (stockDataArray.length === 0) {
+        alert('すべての株価データ取得に失敗しました。');
+        return;
+      }
+
+      const labels = stockDataArray[0].labels;
+      renderChart(labels, stockDataArray);
     }
 
     function renderChart(labels, stockDataArray) {
@@ -138,7 +141,7 @@
       chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
+          labels,
           datasets: stockDataArray.map(stock => {
             const color = symbols.find(s => s.name === stock.symbol).color;
             return {
@@ -159,42 +162,47 @@
           maintainAspectRatio: false,
           plugins: {
             legend: {
+              display: true,
               labels: {
-                color: '#1d1d1f',
+                color: '#111',
                 font: {
                   size: 14
-                }
+                },
+                usePointStyle: true
               }
             },
             tooltip: {
               mode: 'index',
               intersect: false,
               callbacks: {
-                label: (context) =>
-                  `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`
+                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
               }
             }
           },
           scales: {
             x: {
-              display: false,
-              grid: { display: false }
+              display: false
             },
             y: {
               ticks: {
-                color: '#333',
+                color: '#111',
                 font: { size: 14 }
               },
               grid: {
-                color: '#ddd',
+                color: '#ccc',
                 borderDash: [4, 4]
               }
             }
+          },
+          interaction: {
+            mode: 'index',
+            intersect: false
           }
         }
       });
     }
 
+    // 初期ロード
     loadData('1month');
   </script>
 </body>
