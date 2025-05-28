@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Stock Chart: Apple & NVIDIA</title>
+  <title>Multi-Stock Chart</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * {
@@ -11,15 +11,15 @@
     }
 
     body {
-      background: #fafafa;
+      background: #f5f5f7;
       text-align: center;
       padding: 40px 20px;
       color: #1d1d1f;
     }
 
     h1 {
+      font-size: 24px;
       font-weight: 600;
-      font-size: 26px;
       margin-bottom: 30px;
     }
 
@@ -35,9 +35,8 @@
       background: #0071e3;
       color: white;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
-      transition: background-color 0.25s ease;
     }
 
     button:hover {
@@ -45,32 +44,32 @@
     }
 
     .chart-container {
-      position: relative;
-      width: 100%;
-      max-width: 800px;
-      height: 400px;
+      max-width: 1000px;
       margin: auto;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
 
     canvas {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 100% !important;
+      height: 500px !important;
     }
   </style>
 </head>
 <body>
 
-  <h1>Apple & NVIDIA Stock Chart</h1>
+  <h1>米国株価チャート</h1>
 
   <div class="buttons">
-    <button onclick="loadData('1month')">1 Month</button>
-    <button onclick="loadData('3months')">3 Months</button>
-    <button onclick="loadData('6months')">6 Months</button>
-    <button onclick="loadData('1year')">1 Year</button>
-    <button onclick="loadData('2years')">2 Years</button>
-    <button onclick="loadData('5years')">5 Years</button>
-    <button onclick="loadData('max')">Max</button>
+    <button onclick="loadData('1month')">1ヶ月</button>
+    <button onclick="loadData('3months')">3ヶ月</button>
+    <button onclick="loadData('6months')">6ヶ月</button>
+    <button onclick="loadData('1year')">1年</button>
+    <button onclick="loadData('2years')">2年</button>
+    <button onclick="loadData('5years')">5年</button>
+    <button onclick="loadData('max')">最大</button>
   </div>
 
   <div class="chart-container">
@@ -79,6 +78,18 @@
 
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
+
+    const symbols = [
+      { name: 'AAPL', color: '#0071e3' },
+      { name: 'NVDA', color: '#34a853' },
+      { name: 'AMZN', color: '#ff9900' },
+      { name: 'GOOGL', color: '#ea4335' },
+      { name: 'MSFT', color: '#6a5acd' },
+      { name: 'MRNA', color: '#8b0000' },
+      { name: 'SPXL', color: '#ff1493' },
+      { name: 'SOXL', color: '#00ced1' }
+    ];
+
     let chart;
 
     async function fetchStockData(symbol, interval, points) {
@@ -86,11 +97,11 @@
       const res = await fetch(url);
       const data = await res.json();
       if (!data || !data.values) throw new Error(`データ取得失敗: ${symbol}`);
-      const values = data.values.reverse(); // 時系列を昇順に
+      const values = data.values.reverse();
       return {
-        symbol: symbol,
-        labels: values.map(entry => entry.datetime),
-        prices: values.map(entry => parseFloat(entry.close))
+        symbol,
+        labels: values.map(v => v.datetime),
+        prices: values.map(v => parseFloat(v.close))
       };
     }
 
@@ -108,19 +119,19 @@
       const [interval, points] = intervalMap[period];
 
       try {
-        const [apple, nvidia] = await Promise.all([
-          fetchStockData('AAPL', interval, points),
-          fetchStockData('NVDA', interval, points)
-        ]);
+        const allData = await Promise.all(
+          symbols.map(sym => fetchStockData(sym.name, interval, points))
+        );
 
-        // ラベル（横軸）はAppleのものを基準に
-        renderChart(apple.labels, apple.prices, nvidia.prices);
+        const labels = allData[0].labels;
+
+        renderChart(labels, allData);
       } catch (err) {
         alert('データの取得に失敗しました: ' + err.message);
       }
     }
 
-    function renderChart(labels, pricesAAPL, pricesNVDA) {
+    function renderChart(labels, stockDataArray) {
       const ctx = document.getElementById('stockChart').getContext('2d');
       if (chart) chart.destroy();
 
@@ -128,34 +139,24 @@
         type: 'line',
         data: {
           labels: labels,
-          datasets: [
-            {
-              label: 'AAPL Close Price',
-              data: pricesAAPL,
-              borderColor: '#0071e3',
-              backgroundColor: 'rgba(0, 113, 227, 0.15)',
+          datasets: stockDataArray.map(stock => {
+            const color = symbols.find(s => s.name === stock.symbol).color;
+            return {
+              label: stock.symbol,
+              data: stock.prices,
+              borderColor: color,
+              backgroundColor: color + '33',
               borderWidth: 2,
               fill: false,
               tension: 0.3,
               pointRadius: 0,
               pointHoverRadius: 3
-            },
-            {
-              label: 'NVDA Close Price',
-              data: pricesNVDA,
-              borderColor: '#34a853',
-              backgroundColor: 'rgba(52, 168, 83, 0.15)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 0,
-              pointHoverRadius: 3
-            }
-          ]
+            };
+          })
         },
         options: {
           responsive: true,
-          maintainAspectRatio: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: {
               labels: {
@@ -169,24 +170,23 @@
               mode: 'index',
               intersect: false,
               callbacks: {
-                label: (context) => `${context.dataset.label}: ${context.parsed.y}`
+                label: (context) =>
+                  `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`
               }
             }
           },
           scales: {
             x: {
-              display: false, // 横軸のラベルは非表示
+              display: false,
               grid: { display: false }
             },
             y: {
               ticks: {
-                color: '#6e6e73',
-                font: {
-                  size: 14
-                }
+                color: '#333',
+                font: { size: 14 }
               },
               grid: {
-                color: '#d1d1d6',
+                color: '#ddd',
                 borderDash: [4, 4]
               }
             }
