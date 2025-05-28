@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Stock Chart: Apple & NVIDIA</title>
+  <title>Apple Stock Chart</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * {
@@ -44,24 +44,20 @@
       background: #005bb5;
     }
 
-    .chart-container {
-      position: relative;
-      width: 100%;
-      max-width: 800px;
-      height: 400px;
-      margin: auto;
-    }
-
     canvas {
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-width: 800px;
+      width: 100%;
+      height: 400px !important;
+      margin: auto;
     }
   </style>
 </head>
 <body>
 
-  <h1>Apple & NVIDIA Stock Chart</h1>
+  <h1>Apple Stock Chart</h1>
 
   <div class="buttons">
     <button onclick="loadData('1month')">1 Month</button>
@@ -70,28 +66,14 @@
     <button onclick="loadData('1year')">1 Year</button>
     <button onclick="loadData('2years')">2 Years</button>
     <button onclick="loadData('5years')">5 Years</button>
+    <button onclick="loadData('max')">Max</button>
   </div>
 
-  <div class="chart-container">
-    <canvas id="stockChart"></canvas>
-  </div>
+  <canvas id="stockChart" width="800" height="400"></canvas>
 
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
     let chart;
-
-    async function fetchStockData(symbol, interval, points) {
-      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!data || !data.values) throw new Error(`データ取得失敗: ${symbol}`);
-      const values = data.values.reverse(); // 時系列を昇順に
-      return {
-        symbol: symbol,
-        labels: values.map(entry => entry.datetime),
-        prices: values.map(entry => parseFloat(entry.close))
-      };
-    }
 
     async function loadData(period) {
       const intervalMap = {
@@ -100,25 +82,28 @@
         '6months': ['1day', 180],
         '1year': ['1day', 365],
         '2years': ['1week', 104],
-        '5years': ['1month', 60]
+        '5years': ['1month', 60],
+        'max': ['1month', 120]
       };
 
       const [interval, points] = intervalMap[period];
+      const url = `https://api.twelvedata.com/time_series?symbol=AAPL&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
 
-      try {
-        const [apple, nvidia] = await Promise.all([
-          fetchStockData('AAPL', interval, points),
-          fetchStockData('NVDA', interval, points)
-        ]);
+      const res = await fetch(url);
+      const data = await res.json();
 
-        // ラベル（横軸）はAppleのものを基準に
-        renderChart(apple.labels, apple.prices, nvidia.prices);
-      } catch (err) {
-        alert('データの取得に失敗しました: ' + err.message);
+      if (!data || !data.values) {
+        alert('データ取得に失敗しました');
+        return;
       }
+
+      const labels = data.values.map(entry => entry.datetime).reverse();
+      const prices = data.values.map(entry => parseFloat(entry.close)).reverse();
+
+      renderChart(labels, prices);
     }
 
-    function renderChart(labels, pricesAAPL, pricesNVDA) {
+    function renderChart(labels, prices) {
       const ctx = document.getElementById('stockChart').getContext('2d');
       if (chart) chart.destroy();
 
@@ -126,67 +111,54 @@
         type: 'line',
         data: {
           labels: labels,
-          datasets: [
-            {
-              label: 'AAPL Close Price',
-              data: pricesAAPL,
-              borderColor: '#0071e3',
-              backgroundColor: 'rgba(0, 113, 227, 0.15)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 0,
-              pointHoverRadius: 3
-            },
-            {
-              label: 'NVDA Close Price',
-              data: pricesNVDA,
-              borderColor: '#34a853',
-              backgroundColor: 'rgba(52, 168, 83, 0.15)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 0,
-              pointHoverRadius: 3
-            }
-          ]
+          datasets: [{
+            label: 'AAPL Close Price',
+            data: prices,
+            borderColor: '#0071e3',
+            backgroundColor: 'rgba(0, 113, 227, 0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 4
+          }]
         },
         options: {
           responsive: true,
-          maintainAspectRatio: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: {
               labels: {
                 color: '#1d1d1f',
-                font: {
-                  size: 14
-                }
+                font: { size: 14 }
               }
             },
             tooltip: {
-              mode: 'index',
-              intersect: false,
               callbacks: {
-                label: (context) => `${context.dataset.label}: ${context.parsed.y}`
+                label: (context) => `Price: ${context.parsed.y}`
               }
             }
           },
           scales: {
             x: {
-              display: false, // 横軸のラベルは非表示
+              display: false, // 横軸ラベルを非表示に
               grid: { display: false }
             },
             y: {
               ticks: {
                 color: '#6e6e73',
-                font: {
-                  size: 14
-                }
+                font: { size: 14 } // 潰れ防止
               },
               grid: {
                 color: '#d1d1d6',
                 borderDash: [4, 4]
               }
+            }
+          },
+          layout: {
+            padding: {
+              top: 10,
+              bottom: 10
             }
           }
         }
