@@ -57,7 +57,6 @@
     <button onclick="filterData('1year')">1年</button>
     <button onclick="filterData('2years')">2年</button>
     <button onclick="filterData('5years')">5年</button>
-    <button onclick="filterData('10years')">10年</button>
   </div>
 
   <div class="chart-container">
@@ -104,7 +103,6 @@
         case '1year': d.setFullYear(d.getFullYear() - 1); break;
         case '2years': d.setFullYear(d.getFullYear() - 2); break;
         case '5years': d.setFullYear(d.getFullYear() - 5); break;
-        case '10years': d.setFullYear(d.getFullYear() - 10); break;
       }
       return d.toISOString().split('T')[0];
     }
