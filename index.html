@@ -57,6 +57,7 @@
     <button onclick="filterData('1year')">1年</button>
     <button onclick="filterData('2years')">2年</button>
     <button onclick="filterData('5years')">5年</button>
+    <button onclick="filterData('10years')">10年</button>
   </div>
 
   <div class="chart-container">
@@ -72,8 +73,6 @@
       { name: 'AMZN', color: '#ff9900' },
       { name: 'GOOGL', color: '#ea4335' },
       { name: 'MSFT', color: '#6a5acd' },
-      { name: 'MRNA', color: '#8b0000' },
-      { name: 'SPXL', color: '#ff1493' },
       { name: 'SOXL', color: '#00ced1' }
     ];
 
@@ -82,7 +81,7 @@
 
     async function fetchInitialData() {
       for (const sym of symbols) {
-        const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1month&outputsize=60&apikey=${apiKey}`;
+        const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1month&outputsize=120&apikey=${apiKey}`;
         try {
           const res = await fetch(url);
           const json = await res.json();
@@ -105,6 +104,7 @@
         case '1year': d.setFullYear(d.getFullYear() - 1); break;
         case '2years': d.setFullYear(d.getFullYear() - 2); break;
         case '5years': d.setFullYear(d.getFullYear() - 5); break;
+        case '10years': d.setFullYear(d.getFullYear() - 10); break;
       }
       return d.toISOString().split('T')[0];
     }
@@ -128,13 +128,14 @@
           }
         }
 
+        // 粒度変換
         let sampledData;
         if (period === '1month' || period === '3months') {
-          sampledData = dayData;
+          sampledData = dayData; // 1日足そのまま
         } else if (period === '6months') {
-          sampledData = sampleEveryNDays(dayData, 4);
+          sampledData = sampleEveryNDays(dayData, 4); // 4日おき
         } else if (period === '1year' || period === '2years') {
-          sampledData = sampleWeekly(dayData);
+          sampledData = sampleWeekly(dayData); // 週足相当（毎週月曜）
         }
 
         renderSampledData(sampledData);
