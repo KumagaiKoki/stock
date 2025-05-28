@@ -44,14 +44,18 @@
       background: #005bb5;
     }
 
+    .chart-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      height: 400px;
+      margin: auto;
+    }
+
     canvas {
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      max-width: 800px;
-      width: 100%;
-      height: 400px !important;
-      margin: auto;
     }
   </style>
 </head>
@@ -69,7 +73,9 @@
     <button onclick="loadData('max')">Max</button>
   </div>
 
-  <canvas id="stockChart" width="800" height="400"></canvas>
+  <div class="chart-container">
+    <canvas id="stockChart"></canvas>
+  </div>
 
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
@@ -125,12 +131,14 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: true, // グラフの縦横比を維持
           plugins: {
             legend: {
               labels: {
                 color: '#1d1d1f',
-                font: { size: 14 }
+                font: {
+                  size: 14 // 凡例のフォントサイズを明示
+                }
               }
             },
             tooltip: {
@@ -141,13 +149,15 @@
           },
           scales: {
             x: {
-              display: false, // 横軸ラベルを非表示に
+              display: false, // 横軸のラベルを非表示
               grid: { display: false }
             },
             y: {
               ticks: {
                 color: '#6e6e73',
-                font: { size: 14 } // 潰れ防止
+                font: {
+                  size: 14 // 目盛り文字サイズ
+                }
               },
               grid: {
                 color: '#d1d1d6',
