@@ -11,17 +11,14 @@
       padding: 40px 20px;
       font-family: "Segoe UI", sans-serif;
     }
-
     h1 {
       font-size: 24px;
       font-weight: bold;
       margin-bottom: 20px;
     }
-
     .buttons {
       margin-bottom: 20px;
     }
-
     button {
       margin: 4px;
       padding: 8px 16px;
@@ -33,11 +30,9 @@
       border-radius: 6px;
       cursor: pointer;
     }
-
     button:hover {
       background: #005bb5;
     }
-
     .chart-container {
       max-width: 1000px;
       margin: auto;
@@ -46,7 +41,6 @@
       padding: 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
-
     canvas {
       width: 100% !important;
       height: 500px !important;
@@ -54,17 +48,16 @@
   </style>
 </head>
 <body>
-
   <h1>米国株価チャート</h1>
 
   <div class="buttons">
-    <button onclick="loadData('1month')">1ヶ月</button>
-    <button onclick="loadData('3months')">3ヶ月</button>
-    <button onclick="loadData('6months')">6ヶ月</button>
-    <button onclick="loadData('1year')">1年</button>
-    <button onclick="loadData('2years')">2年</button>
-    <button onclick="loadData('5years')">5年</button>
-    <button onclick="loadData('max')">最大</button>
+    <button onclick="filterData('1month')">1ヶ月</button>
+    <button onclick="filterData('3months')">3ヶ月</button>
+    <button onclick="filterData('6months')">6ヶ月</button>
+    <button onclick="filterData('1year')">1年</button>
+    <button onclick="filterData('2years')">2年</button>
+    <button onclick="filterData('5years')">5年</button>
+    <button onclick="filterData('10years')">10年</button>
   </div>
 
   <div class="chart-container">
@@ -86,52 +79,56 @@
     ];
 
     let chart;
+    let cache = {}; // 銘柄別キャッシュ
 
-    const intervalMap = {
-      '1month': ['1day', 30],
-      '3months': ['1day', 90],
-      '6months': ['1day', 180],
-      '1year': ['1day', 365],
-      '2years': ['1week', 104],
-      '5years': ['1month', 60],
-      'max': ['1month', 120]
-    };
-
-    async function fetchStockData(symbol, interval, points) {
-      try {
-        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${points}&apikey=${apiKey}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!data || !data.values) throw new Error(data.message || 'Invalid data');
-        const values = data.values.reverse();
-        return {
-          symbol,
-          labels: values.map(v => v.datetime),
-          prices: values.map(v => parseFloat(v.close))
-        };
-      } catch (err) {
-        console.warn(`取得失敗: ${symbol}`, err);
-        return null;
+    async function fetchInitialData() {
+      for (const sym of symbols) {
+        const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1month&outputsize=120&apikey=${apiKey}`;
+        try {
+          const res = await fetch(url);
+          const json = await res.json();
+          if (!json || !json.values) throw new Error(json.message || 'invalid data');
+          const values = json.values.reverse();
+          cache[sym.name] = values.map(v => ({ date: v.datetime, price: parseFloat(v.close) }));
+        } catch (e) {
+          console.warn(`取得失敗: ${sym.name}`, e);
+        }
       }
     }
 
-    async function loadData(period) {
-      const [interval, points] = intervalMap[period];
+    function filterData(period) {
+      const now = new Date();
+      let startDate;
+      let interval = '1month';
 
-      const stockDataArray = [];
-
-      for (const sym of symbols) {
-        const stock = await fetchStockData(sym.name, interval, points);
-        if (stock) stockDataArray.push(stock);
+      switch (period) {
+        case '1month': startDate = new Date(now.setMonth(now.getMonth() - 1)); interval = '1day'; break;
+        case '3months': startDate = new Date(now.setMonth(now.getMonth() - 3)); interval = '1day'; break;
+        case '6months': startDate = new Date(now.setMonth(now.getMonth() - 6)); interval = '1day'; break;
+        case '1year': startDate = new Date(now.setFullYear(now.getFullYear() - 1)); interval = '1day'; break;
+        case '2years': startDate = new Date(now.setFullYear(now.getFullYear() - 2)); break;
+        case '5years': startDate = new Date(now.setFullYear(now.getFullYear() - 5)); break;
+        case '10years': startDate = new Date(now.setFullYear(now.getFullYear() - 10)); break;
       }
 
-      if (stockDataArray.length === 0) {
-        alert('すべての株価データ取得に失敗しました。');
+      const formattedStart = startDate.toISOString().split('T')[0];
+
+      const filtered = symbols.map(sym => {
+        const raw = cache[sym.name] || [];
+        const data = raw.filter(d => d.date >= formattedStart);
+        return {
+          symbol: sym.name,
+          labels: data.map(d => d.date),
+          prices: data.map(d => d.price)
+        };
+      });
+
+      if (filtered.every(d => d.prices.length === 0)) {
+        alert('データが取得できませんでした。');
         return;
       }
 
-      const labels = stockDataArray[0].labels;
-      renderChart(labels, stockDataArray);
+      renderChart(filtered[0].labels, filtered);
     }
 
     function renderChart(labels, stockDataArray) {
@@ -163,6 +160,12 @@
           plugins: {
             legend: {
               display: true,
+              onClick: (e, legendItem, legend) => {
+                const index = legendItem.datasetIndex;
+                const meta = chart.getDatasetMeta(index);
+                meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
+                chart.update();
+              },
               labels: {
                 color: '#111',
                 font: {
@@ -202,8 +205,8 @@
       });
     }
 
-    // 初期ロード
-    loadData('1month');
+    // 初期処理
+    fetchInitialData().then(() => filterData('1month'));
   </script>
 </body>
 </html>
