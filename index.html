@@ -60,8 +60,6 @@
   <h1>Apple Stock Chart</h1>
 
   <div class="buttons">
-    <button onclick="loadData('1day')">1 Day</button>
-    <button onclick="loadData('1week')">1 Week</button>
     <button onclick="loadData('1month')">1 Month</button>
     <button onclick="loadData('3months')">3 Months</button>
     <button onclick="loadData('6months')">6 Months</button>
@@ -79,8 +77,6 @@
 
     async function loadData(period) {
       const intervalMap = {
-        '1day': ['5min', 1],
-        '1week': ['30min', 7],
         '1month': ['1day', 30],
         '3months': ['1day', 90],
         '6months': ['1day', 180],
@@ -145,20 +141,24 @@
           },
           scales: {
             x: {
-              ticks: {
-                color: '#6e6e73',
-                maxTicksLimit: 10
-              },
+              display: false, // 横軸ラベルを非表示に
               grid: { display: false }
             },
             y: {
               ticks: {
-                color: '#6e6e73'
+                color: '#6e6e73',
+                font: { size: 14 } // 潰れ防止
               },
               grid: {
                 color: '#d1d1d6',
                 borderDash: [4, 4]
               }
+            }
+          },
+          layout: {
+            padding: {
+              top: 10,
+              bottom: 10
             }
           }
         }
