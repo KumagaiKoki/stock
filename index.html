@@ -3,29 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>変化率グラフのみ</title>
+  <title>株価グラフ</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background-color: #f5f5f7;
+      color: #1d1d1f;
       padding: 1rem;
+      margin: 0;
     }
+
+    h2 {
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+    }
+
     canvas {
       max-width: 100%;
       height: auto;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 10px;
     }
+
     .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
       margin-bottom: 1rem;
     }
+
     .button-group button {
-      margin-right: 8px;
-      padding: 6px 12px;
+      background: #e0e0e5;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
       font-size: 14px;
+      color: #1d1d1f;
+      font-weight: 500;
+      transition: background 0.3s ease;
+      cursor: pointer;
+    }
+
+    .button-group button:hover {
+      background: #d0d0d5;
+    }
+
+    @media (max-width: 600px) {
+      .button-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .button-group button {
+        width: 100%;
+        font-size: 16px;
+      }
     }
   </style>
 </head>
 <body>
-  <h2>変化率グラフ（基準 = 最初の日）</h2>
+  <h2>株価推移グラフ（終値）</h2>
   <div class="button-group">
     <button onclick="updateChart('1m')">1ヶ月</button>
     <button onclick="updateChart('3m')">3ヶ月</button>
@@ -34,6 +75,8 @@
     <button onclick="updateChart('2y')">2年</button>
     <button onclick="updateChart('all')">全期間</button>
   </div>
+  <canvas id="priceChart"></canvas>
+  <h2>変化率グラフ（基準 = 最初の日）</h2>
   <canvas id="percentChart"></canvas>
 
   <script>
@@ -42,7 +85,10 @@
     let allData = [];
     let dateList = [];
 
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
     const percentCtx = document.getElementById('percentChart').getContext('2d');
+
+    let priceChart;
     let percentChart;
 
     async function loadCSV() {
@@ -94,33 +140,64 @@
       return allData.slice(startIndex);
     }
 
-    function getPercentChartData(data) {
+    function getChartData(data, relative = false) {
       return symbols.map(symbol => {
         const base = data[0][symbol];
         return {
           label: symbol,
           data: data.map(row => {
-            const percent = ((row[symbol] - base) / base) * 100;
-            return { x: row.date, y: percent };
+            if (relative) {
+              const percent = ((row[symbol] - base) / base) * 100;
+              return { x: row.date, y: percent };
+            } else {
+              return { x: row.date, y: row[symbol] };
+            }
           }),
           borderWidth: 2,
+          pointRadius: 0, // 丸印なし
           fill: false,
-          tension: 0.1,
-          pointRadius: 0  // 丸印なし
+          tension: 0.2,
         };
       });
     }
 
-    function createChart(data) {
-      const percentDatasets = getPercentChartData(data);
+    function createCharts(data) {
+      const priceDatasets = getChartData(data, false);
+      const percentDatasets = getChartData(data, true);
 
+      if (priceChart) priceChart.destroy();
       if (percentChart) percentChart.destroy();
+
+      priceChart = new Chart(priceCtx, {
+        type: 'line',
+        data: { datasets: priceDatasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`
+              }
+            },
+            legend: { position: 'top' }
+          },
+          scales: {
+            x: { ticks: { maxTicksLimit: 20 }, title: { display: true, text: '日付' } },
+            y: {
+              beginAtZero: false,
+              title: { display: true, text: '終値 ($)' }
+            }
+          }
+        }
+      });
 
       percentChart = new Chart(percentCtx, {
         type: 'line',
         data: { datasets: percentDatasets },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           plugins: {
             tooltip: {
               callbacks: {
@@ -133,7 +210,7 @@
             legend: { position: 'top' }
           },
           scales: {
-            x: { ticks: { maxTicksLimit: 20 } },
+            x: { ticks: { maxTicksLimit: 20 }, title: { display: true, text: '日付' } },
             y: {
               beginAtZero: false,
               ticks: {
@@ -152,12 +229,12 @@
     async function init() {
       await loadCSV();
       const initialData = filterDataByPeriod('6m');
-      createChart(initialData);
+      createCharts(initialData);
     }
 
     function updateChart(period) {
       const filteredData = filterDataByPeriod(period);
-      createChart(filteredData);
+      createCharts(filteredData);
     }
 
     init();
