@@ -2,17 +2,52 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>株価チャート表示</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>株価チャート（期間切替）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    button {
+      margin: 0 4px 12px 0;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    canvas { max-width: 100%; }
+  </style>
 </head>
 <body>
-  <h2>株価推移（2020年以降）</h2>
+  <h2>株価推移（終値）</h2>
+
+  <div id="buttons">
+    <button onclick="updateChart('1m')">1ヶ月</button>
+    <button onclick="updateChart('3m')">3ヶ月</button>
+    <button onclick="updateChart('6m')">6ヶ月</button>
+    <button onclick="updateChart('1y')">1年</button>
+    <button onclick="updateChart('2y')">2年</button>
+    <button onclick="updateChart('all')">全期間</button>
+  </div>
+
   <canvas id="stockChart" width="1000" height="400"></canvas>
 
   <script>
     const csvUrl = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
 
+    let fullDateList = [];
+    let fullStockSeries = {};
+    let chart;
+
+    // 表示期間ボタンで日数を定義
+    const rangeDaysMap = {
+      '1m': 30,
+      '3m': 90,
+      '6m': 180,
+      '1y': 365,
+      '2y': 730,
+      'all': Infinity
+    };
+
+    // データ取得と初期描画
     async function fetchAndDraw() {
       const response = await fetch(csvUrl);
       const csvText = await response.text();
@@ -20,39 +55,55 @@
       const lines = csvText.trim().split('\n');
       const headers = lines[0].split(',').map(h => h.trim());
 
-      const dateList = [];
-      const stockSeries = {};
+      fullDateList = [];
+      fullStockSeries = {};
 
       for (let i = 1; i < headers.length; i++) {
-        stockSeries[headers[i]] = [];
+        fullStockSeries[headers[i]] = [];
       }
 
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         const date = cols[0];
-        dateList.push(date);
+        fullDateList.push(date);
 
         for (let j = 1; j < headers.length; j++) {
           const val = parseFloat(cols[j]);
-          stockSeries[headers[j]].push(isNaN(val) ? null : val);
+          fullStockSeries[headers[j]].push(isNaN(val) ? null : val);
         }
       }
 
-      const datasets = Object.entries(stockSeries).map(([name, values], idx) => ({
+      drawChart('1y'); // 初期表示：1年
+    }
+
+    // チャートを再描画する関数
+    function drawChart(rangeKey) {
+      const rangeDays = rangeDaysMap[rangeKey];
+      const total = fullDateList.length;
+      let startIndex = 0;
+
+      if (rangeDays !== Infinity) {
+        startIndex = Math.max(0, total - rangeDays);
+      }
+
+      const dateSlice = fullDateList.slice(startIndex);
+      const datasets = Object.entries(fullStockSeries).map(([name, values], idx) => ({
         label: name,
-        data: values,
+        data: values.slice(startIndex),
         borderColor: getColor(idx),
         borderWidth: 2,
-        spanGaps: true,
+        pointRadius: 0,
         fill: false,
-        pointRadius: 0  // ★ 丸印を非表示にする
+        spanGaps: true,
       }));
 
+      if (chart) chart.destroy(); // 既存のグラフを破棄
+
       const ctx = document.getElementById('stockChart').getContext('2d');
-      new Chart(ctx, {
+      chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: dateList,
+          labels: dateSlice,
           datasets: datasets
         },
         options: {
@@ -76,14 +127,19 @@
               position: 'top'
             },
             title: {
-              display: true,
-              text: '株価の推移（終値）'
+              display: false
             }
           }
         }
       });
     }
 
+    // ボタンから呼ばれる関数
+    function updateChart(rangeKey) {
+      drawChart(rangeKey);
+    }
+
+    // 複数系列の色
     function getColor(index) {
       const colors = [
         'red', 'blue', 'green', 'orange', 'purple', 'teal', 'brown', 'magenta'
