@@ -6,14 +6,40 @@
   <title>株価チャート（期間切替）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+
+    h2 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    #buttons {
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
     button {
-      margin: 0 4px 12px 0;
+      margin: 4px 8px 8px 0;
       padding: 6px 12px;
       font-size: 14px;
       cursor: pointer;
     }
-    canvas { max-width: 100%; }
+
+    .chart-container {
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      position: relative;
+      aspect-ratio: 16 / 9;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
   </style>
 </head>
 <body>
@@ -28,7 +54,9 @@
     <button onclick="updateChart('all')">全期間</button>
   </div>
 
-  <canvas id="stockChart" width="1000" height="400"></canvas>
+  <div class="chart-container">
+    <canvas id="stockChart"></canvas>
+  </div>
 
   <script>
     const csvUrl = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
@@ -37,7 +65,6 @@
     let fullStockSeries = {};
     let chart;
 
-    // 表示期間ボタンで日数を定義
     const rangeDaysMap = {
       '1m': 30,
       '3m': 90,
@@ -47,7 +74,6 @@
       'all': Infinity
     };
 
-    // データ取得と初期描画
     async function fetchAndDraw() {
       const response = await fetch(csvUrl);
       const csvText = await response.text();
@@ -73,10 +99,9 @@
         }
       }
 
-      drawChart('1y'); // 初期表示：1年
+      drawChart('1y'); // 初期表示
     }
 
-    // チャートを再描画する関数
     function drawChart(rangeKey) {
       const rangeDays = rangeDaysMap[rangeKey];
       const total = fullDateList.length;
@@ -97,7 +122,7 @@
         spanGaps: true,
       }));
 
-      if (chart) chart.destroy(); // 既存のグラフを破棄
+      if (chart) chart.destroy();
 
       const ctx = document.getElementById('stockChart').getContext('2d');
       chart = new Chart(ctx, {
@@ -108,6 +133,7 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           interaction: {
             mode: 'index',
             intersect: false
@@ -134,12 +160,10 @@
       });
     }
 
-    // ボタンから呼ばれる関数
     function updateChart(rangeKey) {
       drawChart(rangeKey);
     }
 
-    // 複数系列の色
     function getColor(index) {
       const colors = [
         'red', 'blue', 'green', 'orange', 'purple', 'teal', 'brown', 'magenta'
