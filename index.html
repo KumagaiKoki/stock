@@ -69,15 +69,7 @@
   <script>
     const CSV_URL = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
     const symbols = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
-
-    const colorMap = {
-      "APPLE": "#ff6384",
-      "NVIDIA": "#36a2eb",
-      "AMAZON": "#ffce56",
-      "GOOGLE": "#4bc0c0",
-      "マイクロソフト": "#9966ff",
-      "SOXL": "#ff9f40"
-    };
+    const colorPalette = ['#32d74b', '#0a84ff', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa'];
 
     let allData = [];
     let dateList = [];
@@ -135,7 +127,7 @@
     }
 
     function getPercentChartData(data) {
-      return symbols.map((symbol, index) => {
+      return symbols.map((symbol, idx) => {
         const base = data[0][symbol];
         return {
           label: symbol,
@@ -143,7 +135,7 @@
             const percent = ((row[symbol] - base) / base) * 100;
             return { x: row.date, y: percent };
           }),
-          borderColor: getColorForSymbol(symbol),
+          borderColor: colorPalette[idx % colorPalette.length],
           borderWidth: 2,
           fill: false,
           tension: 0.2,
@@ -173,7 +165,7 @@
                 }
               }
             },
-            legend: { display: true, labels: { color: '#ccc' } }
+            legend: { display: false }
           },
           scales: {
             x: {
