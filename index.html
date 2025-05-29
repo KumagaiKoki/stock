@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>株価推移（割合グラフ付き）</title>
+  <title>株価推移（終値＋変化率）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -189,14 +189,47 @@
             intersect: false
           },
           plugins: {
-            legend: { position: 'top' }
+            legend: {
+              position: 'top',
+              labels: {
+                generateLabels: chart => {
+                  const datasets = chart.data.datasets;
+                  return datasets.map((ds, i) => {
+                    return {
+                      text: ds.label,
+                      fillStyle: ds.borderColor,
+                      strokeStyle: ds.borderColor,
+                      lineWidth: 2,
+                      hidden: !chart.isDatasetVisible(i),
+                      index: i
+                    };
+                  });
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const value = context.parsed.y;
+                  const label = context.dataset.label || '';
+                  if (value == null) return label + ': データなし';
+                  const formatted = value === 0
+                    ? '0%'
+                    : (value > 0 ? '+' : '') + value.toFixed(2) + '%';
+                  return `${label}: ${formatted}`;
+                }
+              }
+            }
           },
           scales: {
             x: { ticks: { maxTicksLimit: 20 } },
             y: {
               beginAtZero: false,
               ticks: {
-                callback: value => value.toFixed(0) + '%'
+                callback: value => {
+                  if (value === 0) return '0%';
+                  return (value > 0 ? '+' : '') + value.toFixed(0) + '%';
+                }
               }
             }
           }
