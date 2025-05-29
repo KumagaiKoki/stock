@@ -69,6 +69,16 @@
   <script>
     const CSV_URL = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
     const symbols = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
+
+    const colorMap = {
+      "APPLE": "#ff6384",
+      "NVIDIA": "#36a2eb",
+      "AMAZON": "#ffce56",
+      "GOOGLE": "#4bc0c0",
+      "マイクロソフト": "#9966ff",
+      "SOXL": "#ff9f40"
+    };
+
     let allData = [];
     let dateList = [];
 
@@ -127,21 +137,22 @@
     function getPercentChartData(data) {
       return symbols.map(symbol => {
         const base = data[0][symbol];
+        const color = colorMap[symbol];
         return {
           label: symbol,
           data: data.map(row => {
             const percent = ((row[symbol] - base) / base) * 100;
             return { x: row.date, y: percent };
           }),
-          borderColor: '#32d74b',
-          borderWidth: 2,
-          fill: true,
+          borderColor: color,
           backgroundColor: ctx => {
             const gradient = percentCtx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, 'rgba(50, 215, 75, 0.3)');
-            gradient.addColorStop(1, 'rgba(50, 215, 75, 0)');
+            gradient.addColorStop(0, `${color}33`); // 20% opacity
+            gradient.addColorStop(1, `${color}00`); // 0% opacity
             return gradient;
           },
+          borderWidth: 2,
+          fill: true,
           tension: 0.2,
           pointRadius: 0
         };
@@ -169,7 +180,7 @@
                 }
               }
             },
-            legend: { display: false }
+            legend: { display: true, labels: { color: '#ccc' } }
           },
           scales: {
             x: {
