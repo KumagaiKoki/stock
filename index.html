@@ -2,50 +2,31 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>株価推移（終値＋変化率）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>株価グラフ</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: sans-serif;
-      padding: 20px;
+      padding: 1rem;
     }
-
-    h2 {
-      font-size: 20px;
-      margin-bottom: 12px;
+    canvas {
+      max-width: 100%;
+      height: auto;
     }
-
-    #buttons {
-      margin-bottom: 16px;
-      flex-wrap: wrap;
+    .button-group {
+      margin-bottom: 1rem;
     }
-
-    button {
-      margin: 4px 8px 8px 0;
+    .button-group button {
+      margin-right: 8px;
       padding: 6px 12px;
       font-size: 14px;
-      cursor: pointer;
-    }
-
-    .chart-container {
-      width: 100%;
-      max-width: 1000px;
-      margin: 0 auto 40px;
-      position: relative;
-      aspect-ratio: 16 / 9;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: 100% !important;
     }
   </style>
 </head>
 <body>
-  <h2>株価推移（終値と変化率）</h2>
-
-  <div id="buttons">
+  <h2>株価推移グラフ（終値）</h2>
+  <div class="button-group">
     <button onclick="updateChart('1m')">1ヶ月</button>
     <button onclick="updateChart('3m')">3ヶ月</button>
     <button onclick="updateChart('6m')">6ヶ月</button>
@@ -53,173 +34,139 @@
     <button onclick="updateChart('2y')">2年</button>
     <button onclick="updateChart('all')">全期間</button>
   </div>
-
-  <div class="chart-container">
-    <canvas id="priceChart"></canvas>
-  </div>
-  <div class="chart-container">
-    <canvas id="percentChart"></canvas>
-  </div>
+  <canvas id="priceChart"></canvas>
+  <h2>変化率グラフ（基準 = 最初の日）</h2>
+  <canvas id="percentChart"></canvas>
 
   <script>
-    const csvUrl = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
+    const CSV_URL = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
+    const symbols = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
+    let allData = [];
+    let dateList = [];
 
-    let fullDateList = [];
-    let fullStockSeries = {};
-    let priceChart, percentChart;
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
+    const percentCtx = document.getElementById('percentChart').getContext('2d');
 
-    const rangeDaysMap = {
-      '1m': 30,
-      '3m': 90,
-      '6m': 180,
-      '1y': 365,
-      '2y': 730,
-      'all': Infinity
-    };
+    let priceChart;
+    let percentChart;
 
-    async function fetchAndDraw() {
-      const response = await fetch(csvUrl);
-      const csvText = await response.text();
+    async function loadCSV() {
+      const response = await fetch(CSV_URL);
+      const text = await response.text();
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',');
 
-      const lines = csvText.trim().split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
+      allData = lines.slice(1).map(line => {
+        const cols = line.split(',');
+        const entry = { date: cols[0] };
+        symbols.forEach((sym, idx) => {
+          entry[sym] = parseFloat(cols[idx + 1]) || null;
+        });
+        return entry;
+      });
 
-      fullDateList = [];
-      fullStockSeries = {};
+      dateList = allData.map(row => row.date);
+    }
 
-      for (let i = 1; i < headers.length; i++) {
-        fullStockSeries[headers[i]] = [];
+    function filterDataByPeriod(period) {
+      const now = new Date(dateList[dateList.length - 1]);
+      let startIndex = 0;
+
+      const getMonthsAgoDate = (months) => {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - months);
+        return d;
+      };
+
+      let startDate;
+      switch (period) {
+        case '1m': startDate = getMonthsAgoDate(1); break;
+        case '3m': startDate = getMonthsAgoDate(3); break;
+        case '6m': startDate = getMonthsAgoDate(6); break;
+        case '1y': startDate = getMonthsAgoDate(12); break;
+        case '2y': startDate = getMonthsAgoDate(24); break;
+        case 'all': return allData;
+        default: return allData;
       }
 
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',');
-        const date = cols[0];
-        fullDateList.push(date);
-
-        for (let j = 1; j < headers.length; j++) {
-          const val = parseFloat(cols[j]);
-          fullStockSeries[headers[j]].push(isNaN(val) ? null : val);
+      for (let i = 0; i < allData.length; i++) {
+        if (new Date(allData[i].date) >= startDate) {
+          startIndex = i;
+          break;
         }
       }
 
-      drawChart('1y');
+      return allData.slice(startIndex);
     }
 
-    function drawChart(rangeKey) {
-      const rangeDays = rangeDaysMap[rangeKey];
-      const total = fullDateList.length;
-      let startIndex = 0;
-
-      if (rangeDays !== Infinity) {
-        startIndex = Math.max(0, total - rangeDays);
-      }
-
-      const dateSlice = fullDateList.slice(startIndex);
-
-      // データセット作成（終値）
-      const priceDatasets = Object.entries(fullStockSeries).map(([name, values], idx) => ({
-        label: name,
-        data: values.slice(startIndex),
-        borderColor: getColor(idx),
-        borderWidth: 2,
-        pointRadius: 0,
-        fill: false,
-        spanGaps: true,
-      }));
-
-      // データセット作成（変化率）
-      const percentDatasets = Object.entries(fullStockSeries).map(([name, values], idx) => {
-        const sliced = values.slice(startIndex);
-        const base = sliced.find(v => v !== null); // 最初の有効な値
-        const percent = sliced.map(v => (v !== null && base !== 0) ? (v / base) * 100 : null);
-
+    function getChartData(data, relative = false) {
+      const datasets = symbols.map(symbol => {
+        const base = data[0][symbol];
         return {
-          label: name,
-          data: percent,
-          borderColor: getColor(idx),
+          label: symbol,
+          data: data.map(row => {
+            if (relative) {
+              const percent = ((row[symbol] - base) / base) * 100;
+              return { x: row.date, y: percent };
+            } else {
+              return { x: row.date, y: row[symbol] };
+            }
+          }),
           borderWidth: 2,
-          pointRadius: 0,
           fill: false,
-          spanGaps: true,
+          tension: 0.1,
         };
       });
 
-      // 既存のグラフ破棄
+      return datasets;
+    }
+
+    function createCharts(data) {
+      const labels = data.map(row => row.date);
+      const priceDatasets = getChartData(data, false);
+      const percentDatasets = getChartData(data, true);
+
       if (priceChart) priceChart.destroy();
       if (percentChart) percentChart.destroy();
 
-      // 終値グラフ
-      const ctxPrice = document.getElementById('priceChart').getContext('2d');
-      priceChart = new Chart(ctxPrice, {
+      priceChart = new Chart(priceCtx, {
         type: 'line',
-        data: {
-          labels: dateSlice,
-          datasets: priceDatasets
-        },
+        data: { datasets: priceDatasets },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false
-          },
           plugins: {
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`
+              }
+            },
             legend: { position: 'top' }
           },
           scales: {
             x: { ticks: { maxTicksLimit: 20 } },
-            y: { beginAtZero: false }
+            y: {
+              beginAtZero: false,
+              title: { display: true, text: '終値 ($)' }
+            }
           }
         }
       });
 
-      // 変化率グラフ
-      const ctxPercent = document.getElementById('percentChart').getContext('2d');
-      percentChart = new Chart(ctxPercent, {
+      percentChart = new Chart(percentCtx, {
         type: 'line',
-        data: {
-          labels: dateSlice,
-          datasets: percentDatasets
-        },
+        data: { datasets: percentDatasets },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false
-          },
           plugins: {
-            legend: {
-              position: 'top',
-              labels: {
-                generateLabels: chart => {
-                  const datasets = chart.data.datasets;
-                  return datasets.map((ds, i) => {
-                    return {
-                      text: ds.label,
-                      fillStyle: ds.borderColor,
-                      strokeStyle: ds.borderColor,
-                      lineWidth: 2,
-                      hidden: !chart.isDatasetVisible(i),
-                      index: i
-                    };
-                  });
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const val = ctx.parsed.y;
+                  return `${ctx.dataset.label}: ${(val >= 0 ? '+' : '')}${val.toFixed(2)}%`;
                 }
               }
             },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const value = context.parsed.y;
-                  const label = context.dataset.label || '';
-                  if (value == null) return label + ': データなし';
-                  const formatted = value === 0
-                    ? '0%'
-                    : (value > 0 ? '+' : '') + value.toFixed(2) + '%';
-                  return `${label}: ${formatted}`;
-                }
-              }
-            }
+            legend: { position: 'top' }
           },
           scales: {
             x: { ticks: { maxTicksLimit: 20 } },
@@ -227,26 +174,29 @@
               beginAtZero: false,
               ticks: {
                 callback: value => {
-                  if (value === 0) return '0%';
+                  if (value === 0) return '±0%';
                   return (value > 0 ? '+' : '') + value.toFixed(0) + '%';
                 }
-              }
+              },
+              title: { display: true, text: '変化率 (%)' }
             }
           }
         }
       });
     }
 
-    function updateChart(rangeKey) {
-      drawChart(rangeKey);
+    async function init() {
+      await loadCSV();
+      const initialData = filterDataByPeriod('6m');
+      createCharts(initialData);
     }
 
-    function getColor(index) {
-      const colors = ['red', 'blue', 'green', 'orange', 'purple', 'teal', 'brown', 'magenta'];
-      return colors[index % colors.length];
+    function updateChart(period) {
+      const filteredData = filterDataByPeriod(period);
+      createCharts(filteredData);
     }
 
-    fetchAndDraw();
+    init();
   </script>
 </body>
 </html>
