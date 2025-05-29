@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>株価グラフ</title>
+  <title>変化率グラフのみ</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -25,7 +25,7 @@
   </style>
 </head>
 <body>
-  <h2>株価推移グラフ（終値）</h2>
+  <h2>変化率グラフ（基準 = 最初の日）</h2>
   <div class="button-group">
     <button onclick="updateChart('1m')">1ヶ月</button>
     <button onclick="updateChart('3m')">3ヶ月</button>
@@ -34,8 +34,6 @@
     <button onclick="updateChart('2y')">2年</button>
     <button onclick="updateChart('all')">全期間</button>
   </div>
-  <canvas id="priceChart"></canvas>
-  <h2>変化率グラフ（基準 = 最初の日）</h2>
   <canvas id="percentChart"></canvas>
 
   <script>
@@ -44,10 +42,7 @@
     let allData = [];
     let dateList = [];
 
-    const priceCtx = document.getElementById('priceChart').getContext('2d');
     const percentCtx = document.getElementById('percentChart').getContext('2d');
-
-    let priceChart;
     let percentChart;
 
     async function loadCSV() {
@@ -99,58 +94,27 @@
       return allData.slice(startIndex);
     }
 
-    function getChartData(data, relative = false) {
-      const datasets = symbols.map(symbol => {
+    function getPercentChartData(data) {
+      return symbols.map(symbol => {
         const base = data[0][symbol];
         return {
           label: symbol,
           data: data.map(row => {
-            if (relative) {
-              const percent = ((row[symbol] - base) / base) * 100;
-              return { x: row.date, y: percent };
-            } else {
-              return { x: row.date, y: row[symbol] };
-            }
+            const percent = ((row[symbol] - base) / base) * 100;
+            return { x: row.date, y: percent };
           }),
           borderWidth: 2,
           fill: false,
           tension: 0.1,
+          pointRadius: 0  // 丸印なし
         };
       });
-
-      return datasets;
     }
 
-    function createCharts(data) {
-      const labels = data.map(row => row.date);
-      const priceDatasets = getChartData(data, false);
-      const percentDatasets = getChartData(data, true);
+    function createChart(data) {
+      const percentDatasets = getPercentChartData(data);
 
-      if (priceChart) priceChart.destroy();
       if (percentChart) percentChart.destroy();
-
-      priceChart = new Chart(priceCtx, {
-        type: 'line',
-        data: { datasets: priceDatasets },
-        options: {
-          responsive: true,
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`
-              }
-            },
-            legend: { position: 'top' }
-          },
-          scales: {
-            x: { ticks: { maxTicksLimit: 20 } },
-            y: {
-              beginAtZero: false,
-              title: { display: true, text: '終値 ($)' }
-            }
-          }
-        }
-      });
 
       percentChart = new Chart(percentCtx, {
         type: 'line',
@@ -188,12 +152,12 @@
     async function init() {
       await loadCSV();
       const initialData = filterDataByPeriod('6m');
-      createCharts(initialData);
+      createChart(initialData);
     }
 
     function updateChart(period) {
       const filteredData = filterDataByPeriod(period);
-      createCharts(filteredData);
+      createChart(filteredData);
     }
 
     init();
