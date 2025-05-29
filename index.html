@@ -5,129 +5,205 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>変化率グラフ</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script> <!-- アダプター追加 -->
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
   <style>
     body {
-      font-family: sans-serif;
-      margin: 2rem;
-      background: #f9fafb;
+      margin: 0;
+      background-color: #1c1c1e;
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 16px;
+    }
+    .button-group {
+      display: flex;
+      justify-content: center;
+      margin: 8px 0;
+    }
+    .button-group button {
+      background: #2c2c2e;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      margin: 0 4px;
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .button-group button.active {
+      background: #3a3a3c;
+      font-weight: bold;
     }
     canvas {
       width: 100%;
       height: 300px;
     }
-    #chart-container {
-      max-width: 900px;
-      margin: auto;
+    .card {
+      background-color: #2c2c2e;
+      margin: 0 16px;
+      border-radius: 12px;
+      padding: 16px;
     }
   </style>
 </head>
 <body>
-  <div id="chart-container">
-    <canvas id="rateChart"></canvas>
+  <h2>変化率グラフ（基準 = 最初の日）</h2>
+
+  <div class="button-group">
+    <button onclick="updateChart('1m', this)">1ヶ月</button>
+    <button onclick="updateChart('3m', this)">3ヶ月</button>
+    <button onclick="updateChart('6m', this)" class="active">6ヶ月</button>
+    <button onclick="updateChart('1y', this)">1年</button>
+    <button onclick="updateChart('2y', this)">2年</button>
+    <button onclick="updateChart('all', this)">全期間</button>
+  </div>
+
+  <div class="card">
+    <canvas id="percentChart"></canvas>
   </div>
 
   <script>
-    // CSVファイルのURL（GitHubの「Raw」リンクなど）
     const CSV_URL = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
+    const symbols = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
+    let allData = [];
+    let dateList = [];
 
-    // データを格納するオブジェクト
-    const datasets = {};
+    const percentCtx = document.getElementById('percentChart').getContext('2d');
+    let percentChart;
 
-    // CSVファイルを読み込み、Chart.js用のデータに変換
-    async function fetchDataAndDrawChart() {
-      const response = await fetch(csvUrl);
-      const csvText = await response.text();
-      const lines = csvText.trim().split('\n');
+    async function loadCSV() {
+      const response = await fetch(CSV_URL);
+      const text = await response.text();
+      const lines = text.trim().split('\n');
       const headers = lines[0].split(',');
 
-      // 2列目以降が銘柄名
-      const stockNames = headers.slice(1);
-
-      // 各銘柄のデータ配列初期化
-      stockNames.forEach(name => {
-        datasets[name] = [];
+      allData = lines.slice(1).map(line => {
+        const cols = line.split(',');
+        const entry = { date: cols[0] };
+        symbols.forEach((sym, idx) => {
+          entry[sym] = parseFloat(cols[idx + 1]) || null;
+        });
+        return entry;
       });
 
-      for (let i = 1; i < lines.length; i++) {
-        const [dateStr, ...values] = lines[i].split(',');
-
-        const date = new Date(dateStr);
-        values.forEach((val, index) => {
-          const y = parseFloat(val);
-          if (!isNaN(y)) {
-            datasets[stockNames[index]].push({
-              x: date,
-              y: y
-            });
-          }
-        });
-      }
-
-      drawChart();
+      dateList = allData.map(row => row.date);
     }
 
-    // グラフ描画
-    function drawChart() {
-      const ctx = document.getElementById('rateChart').getContext('2d');
+    function filterDataByPeriod(period) {
+      const now = new Date(dateList[dateList.length - 1]);
+      let startIndex = 0;
 
-      const chart = new Chart(ctx, {
+      const getMonthsAgoDate = (months) => {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - months);
+        return d;
+      };
+
+      let startDate;
+      switch (period) {
+        case '1m': startDate = getMonthsAgoDate(1); break;
+        case '3m': startDate = getMonthsAgoDate(3); break;
+        case '6m': startDate = getMonthsAgoDate(6); break;
+        case '1y': startDate = getMonthsAgoDate(12); break;
+        case '2y': startDate = getMonthsAgoDate(24); break;
+        case 'all': return allData;
+        default: return allData;
+      }
+
+      for (let i = 0; i < allData.length; i++) {
+        if (new Date(allData[i].date) >= startDate) {
+          startIndex = i;
+          break;
+        }
+      }
+
+      return allData.slice(startIndex);
+    }
+
+    function getPercentChartData(data) {
+      return symbols.map(symbol => {
+        const base = data[0][symbol];
+        return {
+          label: symbol,
+          data: data.map(row => {
+            const percent = ((row[symbol] - base) / base) * 100;
+            return { x: row.date, y: percent };
+          }),
+          borderColor: '#32d74b',
+          borderWidth: 2,
+          fill: true,
+          backgroundColor: ctx => {
+            const gradient = percentCtx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(50, 215, 75, 0.3)');
+            gradient.addColorStop(1, 'rgba(50, 215, 75, 0)');
+            return gradient;
+          },
+          tension: 0.2,
+          pointRadius: 0
+        };
+      });
+    }
+
+    function createChart(data) {
+      const percentDatasets = getPercentChartData(data);
+
+      if (percentChart) percentChart.destroy();
+
+      percentChart = new Chart(percentCtx, {
         type: 'line',
-        data: {
-          datasets: Object.entries(datasets).map(([name, data], index) => ({
-            label: name,
-            data: data,
-            borderColor: getColor(index),
-            backgroundColor: 'transparent',
-            tension: 0.3,
-            pointRadius: 0
-          }))
-        },
+        data: { datasets: percentDatasets },
         options: {
           responsive: true,
           plugins: {
-            legend: {
-              position: 'top',
+            tooltip: {
+              mode: 'nearest',
+              intersect: false,
+              callbacks: {
+                label: ctx => {
+                  const val = ctx.parsed.y;
+                  return `${ctx.dataset.label}: ${(val >= 0 ? '+' : '')}${val.toFixed(2)}%`;
+                }
+              }
             },
-            title: {
-              display: true,
-              text: '株価変化率グラフ'
-            }
+            legend: { display: false }
           },
           scales: {
             x: {
               type: 'time',
-              time: {
-                unit: 'month'
-              },
-              title: {
-                display: true,
-                text: '日付'
-              }
+              time: { unit: 'month', displayFormats: { month: 'M月' } },
+              ticks: { color: '#aaa' },
+              grid: { color: '#333' }
             },
             y: {
-              title: {
-                display: true,
-                text: '変化率（%）'
+              ticks: {
+                color: '#aaa',
+                callback: value => (value === 0 ? '±0%' : (value > 0 ? '+' : '') + value.toFixed(0) + '%')
               },
-              beginAtZero: false
+              grid: { color: '#333' }
             }
           }
         }
       });
     }
 
-    // 色生成関数（任意でカスタマイズ可）
-    function getColor(index) {
-      const colors = [
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
-        '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
-        '#bcbd22', '#17becf'
-      ];
-      return colors[index % colors.length];
+    async function init() {
+      await loadCSV();
+      const initialData = filterDataByPeriod('6m');
+      createChart(initialData);
     }
 
-    fetchDataAndDrawChart();
+    function updateChart(period, button) {
+      document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      const filteredData = filterDataByPeriod(period);
+      createChart(filteredData);
+    }
+
+    init();
   </script>
 </body>
 </html>
