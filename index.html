@@ -2,204 +2,101 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Multi-Stock Chart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>株価チャート表示</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      background: #f5f5f7;
-      text-align: center;
-      padding: 40px 20px;
-      font-family: "Segoe UI", sans-serif;
-    }
-    h1 {
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-    .buttons {
-      margin-bottom: 20px;
-    }
-    button {
-      margin: 4px;
-      padding: 8px 16px;
-      font-size: 14px;
-      font-weight: bold;
-      background: #0071e3;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #005bb5;
-    }
-    .chart-container {
-      max-width: 1000px;
-      margin: auto;
-      background: white;
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-    }
-    canvas {
-      width: 100% !important;
-      height: 500px !important;
-    }
-  </style>
 </head>
 <body>
-  <h1>米国株価チャート</h1>
-
-  <div class="buttons">
-    <button onclick="filterData('1month')">1ヶ月</button>
-    <button onclick="filterData('3months')">3ヶ月</button>
-    <button onclick="filterData('6months')">6ヶ月</button>
-    <button onclick="filterData('1year')">1年</button>
-    <button onclick="filterData('2years')">2年</button>
-    <button onclick="filterData('5years')">5年</button>
-  </div>
-
-  <div class="chart-container">
-    <canvas id="stockChart"></canvas>
-  </div>
+  <h2>株価推移（2020年以降）</h2>
+  <canvas id="stockChart" width="1000" height="400"></canvas>
 
   <script>
-    const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
+    const csvUrl = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
 
-    const symbols = [
-      { name: 'AAPL', color: '#0071e3' },
-      { name: 'NVDA', color: '#34a853' },
-      { name: 'AMZN', color: '#ff9900' },
-      { name: 'GOOGL', color: '#ea4335' },
-      { name: 'MSFT', color: '#6a5acd' },
-      { name: 'SOXL', color: '#00ced1' }
-    ];
+    // CSVを取得してパース
+    async function fetchAndDraw() {
+      const response = await fetch(csvUrl);
+      const csvText = await response.text();
 
-    let chart;
-    let cache = {}; // 月足キャッシュ
+      const lines = csvText.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
 
-    async function fetchInitialData() {
-      for (const sym of symbols) {
-        const url = `https://api.twelvedata.com/time_series?symbol=${sym.name}&interval=1month&outputsize=120&apikey=${apiKey}`;
-        try {
-          const res = await fetch(url);
-          const json = await res.json();
-          if (!json || !json.values) throw new Error(json.message || 'invalid data');
-          const values = json.values.reverse();
-          cache[sym.name] = values.map(v => ({ date: v.datetime, price: parseFloat(v.close) }));
-        } catch (e) {
-          console.warn(`取得失敗: ${sym.name}`, e);
+      const dateList = [];
+      const stockSeries = {};
+
+      // 初期化：銘柄ごとに配列を用意
+      for (let i = 1; i < headers.length; i++) {
+        stockSeries[headers[i]] = [];
+      }
+
+      // データ行を処理
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        const date = cols[0];
+        dateList.push(date);
+
+        for (let j = 1; j < headers.length; j++) {
+          const val = parseFloat(cols[j]);
+          stockSeries[headers[j]].push(isNaN(val) ? null : val);
         }
       }
-    }
 
-    function getStartDate(period) {
-      const now = new Date();
-      const d = new Date(now);
-      switch (period) {
-        case '1month': d.setMonth(d.getMonth() - 1); break;
-        case '3months': d.setMonth(d.getMonth() - 3); break;
-        case '6months': d.setMonth(d.getMonth() - 6); break;
-        case '1year': d.setFullYear(d.getFullYear() - 1); break;
-        case '2years': d.setFullYear(d.getFullYear() - 2); break;
-        case '5years': d.setFullYear(d.getFullYear() - 5); break;
-      }
-      return d.toISOString().split('T')[0];
-    }
+      // Chart.js用のデータセット作成
+      const datasets = Object.entries(stockSeries).map(([name, values], idx) => ({
+        label: name,
+        data: values,
+        borderColor: getColor(idx),
+        borderWidth: 2,
+        spanGaps: true,
+        fill: false,
+      }));
 
-    function filterData(period) {
-      const startDate = getStartDate(period);
-
-      const filtered = symbols.map(sym => {
-        const raw = cache[sym.name] || [];
-        const data = raw.filter(d => d.date >= startDate);
-        return {
-          symbol: sym.name,
-          labels: data.map(d => d.date),
-          prices: data.map(d => d.price)
-        };
-      });
-
-      if (filtered.every(d => d.prices.length === 0)) {
-        alert('データ取得失敗');
-        return;
-      }
-
-      renderChart(filtered[0].labels, filtered);
-    }
-
-    function renderChart(labels, stockDataArray) {
+      // グラフ描画
       const ctx = document.getElementById('stockChart').getContext('2d');
-      if (chart) chart.destroy();
-
-      chart = new Chart(ctx, {
+      new Chart(ctx, {
         type: 'line',
         data: {
-          labels,
-          datasets: stockDataArray.map(stock => {
-            const color = symbols.find(s => s.name === stock.symbol).color;
-            return {
-              label: stock.symbol,
-              data: stock.prices,
-              borderColor: color,
-              backgroundColor: color + '33',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              pointRadius: 0,
-              pointHoverRadius: 3
-            };
-          })
+          labels: dateList,
+          datasets: datasets
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: true,
-              onClick: (e, legendItem, legend) => {
-                const index = legendItem.datasetIndex;
-                const meta = chart.getDatasetMeta(index);
-                meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
-                chart.update();
-              },
-              labels: {
-                color: '#111',
-                font: { size: 14 },
-                usePointStyle: true
-              }
-            },
-            tooltip: {
-              mode: 'index',
-              intersect: false,
-              callbacks: {
-                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
-              }
-            }
-          },
-          scales: {
-            x: { display: false },
-            y: {
-              ticks: {
-                color: '#111',
-                font: { size: 14 }
-              },
-              grid: {
-                color: '#ccc',
-                borderDash: [4, 4]
-              }
-            }
-          },
           interaction: {
             mode: 'index',
             intersect: false
+          },
+          scales: {
+            x: {
+              ticks: {
+                maxTicksLimit: 20 // 表示される日付数を制限
+              }
+            },
+            y: {
+              beginAtZero: false
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top'
+            },
+            title: {
+              display: true,
+              text: '株価の推移（終値）'
+            }
           }
         }
       });
     }
 
-    // 初期ロード
-    fetchInitialData().then(() => filterData('1month'));
+    // 複数系列用の色生成関数
+    function getColor(index) {
+      const colors = [
+        'red', 'blue', 'green', 'orange', 'purple', 'teal', 'brown', 'magenta'
+      ];
+      return colors[index % colors.length];
+    }
+
+    fetchAndDraw();
   </script>
 </body>
 </html>
