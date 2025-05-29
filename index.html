@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>株価チャート（期間切替）</title>
+  <title>株価推移（割合グラフ付き）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -31,7 +31,7 @@
     .chart-container {
       width: 100%;
       max-width: 1000px;
-      margin: 0 auto;
+      margin: 0 auto 40px;
       position: relative;
       aspect-ratio: 16 / 9;
     }
@@ -43,7 +43,7 @@
   </style>
 </head>
 <body>
-  <h2>株価推移（終値）</h2>
+  <h2>株価推移（終値と変化率）</h2>
 
   <div id="buttons">
     <button onclick="updateChart('1m')">1ヶ月</button>
@@ -55,7 +55,10 @@
   </div>
 
   <div class="chart-container">
-    <canvas id="stockChart"></canvas>
+    <canvas id="priceChart"></canvas>
+  </div>
+  <div class="chart-container">
+    <canvas id="percentChart"></canvas>
   </div>
 
   <script>
@@ -63,7 +66,7 @@
 
     let fullDateList = [];
     let fullStockSeries = {};
-    let chart;
+    let priceChart, percentChart;
 
     const rangeDaysMap = {
       '1m': 30,
@@ -99,7 +102,7 @@
         }
       }
 
-      drawChart('1y'); // 初期表示
+      drawChart('1y');
     }
 
     function drawChart(rangeKey) {
@@ -112,7 +115,9 @@
       }
 
       const dateSlice = fullDateList.slice(startIndex);
-      const datasets = Object.entries(fullStockSeries).map(([name, values], idx) => ({
+
+      // データセット作成（終値）
+      const priceDatasets = Object.entries(fullStockSeries).map(([name, values], idx) => ({
         label: name,
         data: values.slice(startIndex),
         borderColor: getColor(idx),
@@ -122,14 +127,34 @@
         spanGaps: true,
       }));
 
-      if (chart) chart.destroy();
+      // データセット作成（変化率）
+      const percentDatasets = Object.entries(fullStockSeries).map(([name, values], idx) => {
+        const sliced = values.slice(startIndex);
+        const base = sliced.find(v => v !== null); // 最初の有効な値
+        const percent = sliced.map(v => (v !== null && base !== 0) ? (v / base) * 100 : null);
 
-      const ctx = document.getElementById('stockChart').getContext('2d');
-      chart = new Chart(ctx, {
+        return {
+          label: name,
+          data: percent,
+          borderColor: getColor(idx),
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          spanGaps: true,
+        };
+      });
+
+      // 既存のグラフ破棄
+      if (priceChart) priceChart.destroy();
+      if (percentChart) percentChart.destroy();
+
+      // 終値グラフ
+      const ctxPrice = document.getElementById('priceChart').getContext('2d');
+      priceChart = new Chart(ctxPrice, {
         type: 'line',
         data: {
           labels: dateSlice,
-          datasets: datasets
+          datasets: priceDatasets
         },
         options: {
           responsive: true,
@@ -138,22 +163,41 @@
             mode: 'index',
             intersect: false
           },
+          plugins: {
+            legend: { position: 'top' }
+          },
           scales: {
-            x: {
-              ticks: {
-                maxTicksLimit: 20
-              }
-            },
-            y: {
-              beginAtZero: false
-            }
+            x: { ticks: { maxTicksLimit: 20 } },
+            y: { beginAtZero: false }
+          }
+        }
+      });
+
+      // 変化率グラフ
+      const ctxPercent = document.getElementById('percentChart').getContext('2d');
+      percentChart = new Chart(ctxPercent, {
+        type: 'line',
+        data: {
+          labels: dateSlice,
+          datasets: percentDatasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
           },
           plugins: {
-            legend: {
-              position: 'top'
-            },
-            title: {
-              display: false
+            legend: { position: 'top' }
+          },
+          scales: {
+            x: { ticks: { maxTicksLimit: 20 } },
+            y: {
+              beginAtZero: false,
+              ticks: {
+                callback: value => value.toFixed(0) + '%'
+              }
             }
           }
         }
@@ -165,9 +209,7 @@
     }
 
     function getColor(index) {
-      const colors = [
-        'red', 'blue', 'green', 'orange', 'purple', 'teal', 'brown', 'magenta'
-      ];
+      const colors = ['red', 'blue', 'green', 'orange', 'purple', 'teal', 'brown', 'magenta'];
       return colors[index % colors.length];
     }
 
