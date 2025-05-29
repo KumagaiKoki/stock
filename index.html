@@ -13,7 +13,6 @@
   <script>
     const csvUrl = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
 
-    // CSVを取得してパース
     async function fetchAndDraw() {
       const response = await fetch(csvUrl);
       const csvText = await response.text();
@@ -24,12 +23,10 @@
       const dateList = [];
       const stockSeries = {};
 
-      // 初期化：銘柄ごとに配列を用意
       for (let i = 1; i < headers.length; i++) {
         stockSeries[headers[i]] = [];
       }
 
-      // データ行を処理
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         const date = cols[0];
@@ -41,7 +38,6 @@
         }
       }
 
-      // Chart.js用のデータセット作成
       const datasets = Object.entries(stockSeries).map(([name, values], idx) => ({
         label: name,
         data: values,
@@ -49,9 +45,9 @@
         borderWidth: 2,
         spanGaps: true,
         fill: false,
+        pointRadius: 0  // ★ 丸印を非表示にする
       }));
 
-      // グラフ描画
       const ctx = document.getElementById('stockChart').getContext('2d');
       new Chart(ctx, {
         type: 'line',
@@ -68,7 +64,7 @@
           scales: {
             x: {
               ticks: {
-                maxTicksLimit: 20 // 表示される日付数を制限
+                maxTicksLimit: 20
               }
             },
             y: {
@@ -88,7 +84,6 @@
       });
     }
 
-    // 複数系列用の色生成関数
     function getColor(index) {
       const colors = [
         'red', 'blue', 'green', 'orange', 'purple', 'teal', 'brown', 'magenta'
