@@ -135,24 +135,17 @@
     }
 
     function getPercentChartData(data) {
-      return symbols.map(symbol => {
+      return symbols.map((symbol, index) => {
         const base = data[0][symbol];
-        const color = colorMap[symbol];
         return {
           label: symbol,
           data: data.map(row => {
             const percent = ((row[symbol] - base) / base) * 100;
             return { x: row.date, y: percent };
           }),
-          borderColor: color,
-          backgroundColor: ctx => {
-            const gradient = percentCtx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, `${color}33`); // 20% opacity
-            gradient.addColorStop(1, `${color}00`); // 0% opacity
-            return gradient;
-          },
+          borderColor: getColorForSymbol(symbol),
           borderWidth: 2,
-          fill: true,
+          fill: false,
           tension: 0.2,
           pointRadius: 0
         };
