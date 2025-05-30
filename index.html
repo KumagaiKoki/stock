@@ -201,7 +201,6 @@
             labels: {
               usePointStyle: true,
               pointStyle: 'line',
-              color: '#fff',
               font: { size: 13 },
               generateLabels: chart => {
                 return chart.data.datasets.map((dataset, i) => {
@@ -217,7 +216,8 @@
                     lineDashOffset: 0,
                     lineJoin: 'miter',
                     lineWidth: chart.isDatasetVisible(i) ? 2 : 0, // 線の太さを0にする
-                    pointStyle: 'line'
+                    pointStyle: 'line',
+                    fontColor: '#fff'
                   };
                 });
               }
