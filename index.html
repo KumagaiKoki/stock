@@ -67,8 +67,9 @@
   </div>
 
   <script>
-    const CSV_URL = 'https://raw.githubusercontent.com/KumagaiKoki/stock/main/stock_prices_2020_onward.csv';
-    const symbols = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
+    const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
+    const symbols = ["AAPL", "NVDA", "AMZN", "GOOGL", "MSFT", "SOXL"];
+    const displayNames = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
     const colorPalette = ['#32d74b', '#0a84ff', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa'];
 
     let allData = [];
@@ -77,22 +78,43 @@
     const percentCtx = document.getElementById('percentChart').getContext('2d');
     let percentChart;
 
-    async function loadCSV() {
-      const response = await fetch(CSV_URL);
-      const text = await response.text();
-      const lines = text.trim().split('\n');
-      const headers = lines[0].split(',');
+    async function fetchDailyData(symbol) {
+      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&outputsize=5000&apikey=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === "error") {
+        console.error(`APIエラー: ${data.message}`);
+        return [];
+      }
+      return data.values.map(entry => ({
+        date: entry.datetime,
+        close: parseFloat(entry.close)
+      })).reverse();
+    }
 
-      allData = lines.slice(1).map(line => {
-        const cols = line.split(',');
-        const entry = { date: cols[0] };
-        symbols.forEach((sym, idx) => {
-          entry[sym] = parseFloat(cols[idx + 1]) || null;
+    async function loadFromAPI() {
+      const symbolDataMap = {};
+      const allDatesSet = new Set();
+
+      for (let i = 0; i < symbols.length; i++) {
+        const sym = symbols[i];
+        const data = await fetchDailyData(sym);
+        data.forEach(d => allDatesSet.add(d.date));
+        symbolDataMap[sym] = data;
+      }
+
+      // 共通日付リストの作成（昇順）
+      dateList = Array.from(allDatesSet).sort();
+
+      // 日付ごとのデータを構造化
+      allData = dateList.map(date => {
+        const row = { date };
+        symbols.forEach(sym => {
+          const found = symbolDataMap[sym].find(d => d.date === date);
+          row[sym] = found ? found.close : null;
         });
-        return entry;
+        return row;
       });
-
-      dateList = allData.map(row => row.date);
     }
 
     function filterDataByPeriod(period) {
@@ -129,19 +151,21 @@
     function getPercentChartData(data) {
       return symbols.map((symbol, idx) => {
         const base = data[0][symbol];
+        if (!base) return null;
         return {
-          label: symbol,
+          label: displayNames[idx],
           data: data.map(row => {
-            const percent = ((row[symbol] - base) / base) * 100;
+            const value = row[symbol];
+            const percent = value && base ? ((value - base) / base) * 100 : null;
             return { x: row.date, y: percent };
-          }),
+          }).filter(p => p.y !== null),
           borderColor: colorPalette[idx % colorPalette.length],
           borderWidth: 2,
           fill: false,
           tension: 0.2,
           pointRadius: 0
         };
-      });
+      }).filter(d => d !== null);
     }
 
     function createChart(data) {
@@ -187,7 +211,7 @@
     }
 
     async function init() {
-      await loadCSV();
+      await loadFromAPI();
       const initialData = filterDataByPeriod('6m');
       createChart(initialData);
     }
