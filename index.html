@@ -189,7 +189,15 @@
                 }
               }
             },
-            legend: { display: false }
+            legend: {
+              display: true, // ← ここを有効にする
+              labels: {
+                color: '#ccc',
+                font: {
+                  size: 12
+                }
+              }
+            }
           },
           scales: {
             x: {
