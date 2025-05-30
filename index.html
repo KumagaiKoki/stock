@@ -198,34 +198,10 @@
                 usePointStyle: true,
                 pointStyle: 'line',
                 color: '#ccc',
-                font: { size: 12 },
-                generateLabels(chart) {
-                  const datasets = chart.data.datasets;
-                  return datasets.map((ds, i) => ({
-                    text: ds.label,
-                    fillStyle: ds.borderColor,
-                    hidden: !chart.isDatasetVisible(i),
-                    lineCap: ds.borderCapStyle,
-                    lineDash: ds.borderDash,
-                    lineDashOffset: ds.borderDashOffset,
-                    lineJoin: ds.borderJoinStyle,
-                    strokeStyle: ds.borderColor,
-                    pointStyle: ds.pointStyle,
-                    datasetIndex: i
-                  }));
-                }
-              },
-              onClick(e, legendItem, legend) {
-                const chart = legend.chart;
-                const index = legendItem.datasetIndex;
-                const meta = chart.getDatasetMeta(index);
-            
-                // トグル処理
-                meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : null;
-            
-                chart.update();
+                font: { size: 12 }
               }
-            },
+            }
+          },
           scales: {
             x: {
               type: 'time',
