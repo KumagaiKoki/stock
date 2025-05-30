@@ -200,9 +200,6 @@
             position: 'right',
             labels: {
               usePointStyle: true,
-              textDecoration: 'none', // ← これが取り消し線を無効化するキー！
-              pointStyle: 'line',
-              font: { size: 13 },
               generateLabels: chart => {
                 return chart.data.datasets.map((dataset, i) => {
                   const meta = chart.getDatasetMeta(i);
@@ -217,6 +214,10 @@
                     lineDashOffset: 0,
                     lineJoin: 'miter',
                     lineWidth: chart.isDatasetVisible(i) ? 2 : 0, // 線の太さを0にする
+                    font: {
+                      size: 13,
+                      decoration: 'none'  // ← ここを追加
+                    },
                     pointStyle: 'line',
                     fontColor: '#fff'
                   };
