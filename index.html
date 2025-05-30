@@ -19,24 +19,35 @@
       font-weight: 600;
       margin: 16px;
     }
-    .button-group, .base-toggle {
+    .button-group {
       display: flex;
       justify-content: center;
+      flex-wrap: wrap;
       margin: 8px 0;
     }
-    .button-group button, .base-toggle button {
+    .button-group button {
       background: #2c2c2e;
       color: #fff;
       border: none;
       padding: 6px 12px;
-      margin: 0 4px;
+      margin: 4px;
       border-radius: 10px;
       font-size: 13px;
       cursor: pointer;
     }
-    .button-group button.active, .base-toggle button.active {
+    .button-group button.active {
       background: #3a3a3c;
       font-weight: bold;
+    }
+    .symbol-selector {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 8px 16px;
+    }
+    .symbol-selector label {
+      margin: 4px 8px;
+      font-size: 13px;
     }
     canvas {
       width: 100%;
@@ -51,21 +62,18 @@
   </style>
 </head>
 <body>
-  <h2>変化率グラフ</h2>
+  <h2>変化率グラフ（基準 = 最初の日）</h2>
 
   <div class="button-group">
-    <button onclick="updateChart('1m', this)">1ヶ月</button>
-    <button onclick="updateChart('3m', this)">3ヶ月</button>
-    <button onclick="updateChart('6m', this)" class="active">6ヶ月</button>
-    <button onclick="updateChart('1y', this)">1年</button>
-    <button onclick="updateChart('2y', this)">2年</button>
-    <button onclick="updateChart('all', this)">全期間</button>
+    <button onclick="changePeriod('1m', this)">1ヶ月</button>
+    <button onclick="changePeriod('3m', this)">3ヶ月</button>
+    <button onclick="changePeriod('6m', this)" class="active">6ヶ月</button>
+    <button onclick="changePeriod('1y', this)">1年</button>
+    <button onclick="changePeriod('2y', this)">2年</button>
+    <button onclick="changePeriod('all', this)">全期間</button>
   </div>
 
-  <div class="base-toggle">
-    <button onclick="setBasePoint('start', this)" class="active">基準: 最初の日</button>
-    <button onclick="setBasePoint('end', this)">基準: 最後の日</button>
-  </div>
+  <div class="symbol-selector" id="symbolSelector"></div>
 
   <div class="card">
     <canvas id="percentChart"></canvas>
@@ -79,8 +87,8 @@
 
     let allData = [];
     let dateList = [];
+    let selectedSymbols = [...symbols];
     let currentPeriod = '6m';
-    let currentBasePoint = 'start'; // 'start' or 'end'
 
     const percentCtx = document.getElementById('percentChart').getContext('2d');
     let percentChart;
@@ -154,18 +162,18 @@
     }
 
     function getPercentChartData(data) {
-      const baseIndex = (currentBasePoint === 'start') ? 0 : data.length - 1;
-      return symbols.map((symbol, idx) => {
-        const base = data[baseIndex][symbol];
+      return selectedSymbols.map((symbol, idx) => {
+        const displayName = displayNames[symbols.indexOf(symbol)];
+        const base = data[0][symbol];
         if (!base) return null;
         return {
-          label: displayNames[idx],
+          label: displayName,
           data: data.map(row => {
             const value = row[symbol];
             const percent = value && base ? ((value - base) / base) * 100 : null;
             return { x: row.date, y: percent };
           }).filter(p => p.y !== null),
-          borderColor: colorPalette[idx % colorPalette.length],
+          borderColor: colorPalette[symbols.indexOf(symbol)],
           borderWidth: 2,
           fill: false,
           tension: 0.2,
@@ -228,26 +236,40 @@
       });
     }
 
-    async function init() {
-      await loadFromAPI();
-      const initialData = filterDataByPeriod(currentPeriod);
-      createChart(initialData);
-    }
-
-    function updateChart(period, button) {
+    function changePeriod(period, button) {
       currentPeriod = period;
       document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
+      updateChart();
+    }
+
+    function updateChart() {
       const filteredData = filterDataByPeriod(currentPeriod);
       createChart(filteredData);
     }
 
-    function setBasePoint(base, button) {
-      currentBasePoint = base;
-      document.querySelectorAll('.base-toggle button').forEach(btn => btn.classList.remove('active'));
-      button.classList.add('active');
-      const filteredData = filterDataByPeriod(currentPeriod);
-      createChart(filteredData);
+    function setupSymbolSelector() {
+      const container = document.getElementById('symbolSelector');
+      symbols.forEach(sym => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = sym;
+        checkbox.checked = true;
+        checkbox.onchange = () => {
+          selectedSymbols = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
+          updateChart();
+        };
+        label.appendChild(checkbox);
+        label.append(` ${sym}`);
+        container.appendChild(label);
+      });
+    }
+
+    async function init() {
+      await loadFromAPI();
+      setupSymbolSelector();
+      updateChart();
     }
 
     init();
