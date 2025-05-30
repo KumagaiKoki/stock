@@ -39,16 +39,6 @@
       background: #3a3a3c;
       font-weight: bold;
     }
-    .symbol-selector {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin: 8px 16px;
-    }
-    .symbol-selector label {
-      margin: 4px 8px;
-      font-size: 13px;
-    }
     canvas {
       width: 100%;
       height: 300px;
@@ -73,8 +63,6 @@
     <button onclick="changePeriod('all', this)">全期間</button>
   </div>
 
-  <div class="symbol-selector" id="symbolSelector"></div>
-
   <div class="card">
     <canvas id="percentChart"></canvas>
   </div>
@@ -87,7 +75,6 @@
 
     let allData = [];
     let dateList = [];
-    let selectedSymbols = [...symbols];
     let currentPeriod = '6m';
 
     const percentCtx = document.getElementById('percentChart').getContext('2d');
@@ -162,8 +149,8 @@
     }
 
     function getPercentChartData(data) {
-      return selectedSymbols.map((symbol, idx) => {
-        const displayName = displayNames[symbols.indexOf(symbol)];
+      return symbols.map((symbol, idx) => {
+        const displayName = displayNames[idx];
         const base = data[0][symbol];
         if (!base) return null;
         return {
@@ -173,7 +160,7 @@
             const percent = value && base ? ((value - base) / base) * 100 : null;
             return { x: row.date, y: percent };
           }).filter(p => p.y !== null),
-          borderColor: colorPalette[symbols.indexOf(symbol)],
+          borderColor: colorPalette[idx],
           borderWidth: 2,
           fill: false,
           tension: 0.2,
@@ -211,9 +198,7 @@
                 usePointStyle: true,
                 pointStyle: 'line',
                 color: '#ccc',
-                font: {
-                  size: 12
-                }
+                font: { size: 12 }
               }
             }
           },
@@ -248,27 +233,8 @@
       createChart(filteredData);
     }
 
-    function setupSymbolSelector() {
-      const container = document.getElementById('symbolSelector');
-      symbols.forEach(sym => {
-        const label = document.createElement('label');
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = sym;
-        checkbox.checked = true;
-        checkbox.onchange = () => {
-          selectedSymbols = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
-          updateChart();
-        };
-        label.appendChild(checkbox);
-        label.append(` ${sym}`);
-        container.appendChild(label);
-      });
-    }
-
     async function init() {
       await loadFromAPI();
-      setupSymbolSelector();
       updateChart();
     }
 
