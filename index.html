@@ -39,16 +39,6 @@
       background: #3a3a3c;
       font-weight: bold;
     }
-    .symbol-selector {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin: 8px 16px;
-    }
-    .symbol-selector label {
-      margin: 4px 8px;
-      font-size: 13px;
-    }
     canvas {
       width: 100%;
       height: 300px;
@@ -62,7 +52,7 @@
   </style>
 </head>
 <body>
-  <h2>変化率グラフ（基準 = 最初の日）</h2>
+  <h2>変化率グラフ</h2>
 
   <div class="button-group">
     <button onclick="changePeriod('1m', this)">1ヶ月</button>
@@ -73,7 +63,10 @@
     <button onclick="changePeriod('all', this)">全期間</button>
   </div>
 
-  <div class="symbol-selector" id="symbolSelector"></div>
+  <div class="button-group">
+    <button onclick="setReferenceType('oldest', this)" class="active">最古を基準</button>
+    <button onclick="setReferenceType('latest', this)">最新を基準</button>
+  </div>
 
   <div class="card">
     <canvas id="percentChart"></canvas>
@@ -82,13 +75,12 @@
   <script>
     const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
     const symbols = ["AAPL", "NVDA", "AMZN", "GOOGL", "MSFT", "SOXL"];
-    const displayNames = ["AAPL", "NVDA", "AMZN", "GOOGL", "MSFT", "SOXL"];
     const colorPalette = ['#32d74b', '#0a84ff', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa'];
-
     let allData = [];
     let dateList = [];
     let selectedSymbols = [...symbols];
     let currentPeriod = '6m';
+    let referenceType = 'oldest';
 
     const percentCtx = document.getElementById('percentChart').getContext('2d');
     let percentChart;
@@ -111,8 +103,7 @@
       const symbolDataMap = {};
       const allDatesSet = new Set();
 
-      for (let i = 0; i < symbols.length; i++) {
-        const sym = symbols[i];
+      for (let sym of symbols) {
         const data = await fetchDailyData(sym);
         data.forEach(d => allDatesSet.add(d.date));
         symbolDataMap[sym] = data;
@@ -132,7 +123,7 @@
 
     function filterDataByPeriod(period) {
       const now = new Date(dateList[dateList.length - 1]);
-      let startIndex = 0;
+      let startDate;
 
       const getMonthsAgoDate = (months) => {
         const d = new Date(now);
@@ -140,7 +131,6 @@
         return d;
       };
 
-      let startDate;
       switch (period) {
         case '1m': startDate = getMonthsAgoDate(1); break;
         case '3m': startDate = getMonthsAgoDate(3); break;
@@ -151,29 +141,33 @@
         default: return allData;
       }
 
-      for (let i = 0; i < allData.length; i++) {
-        if (new Date(allData[i].date) >= startDate) {
-          startIndex = i;
-          break;
-        }
-      }
-
-      return allData.slice(startIndex);
+      return allData.filter(row => new Date(row.date) >= startDate);
     }
 
     function getPercentChartData(data) {
       return selectedSymbols.map((symbol, idx) => {
-        const displayName = displayNames[symbols.indexOf(symbol)];
-        const base = data[0][symbol];
+        let base;
+        if (referenceType === 'oldest') {
+          base = data.find(row => row[symbol] != null)?.[symbol];
+        } else {
+          for (let i = data.length - 1; i >= 0; i--) {
+            if (data[i][symbol] != null) {
+              base = data[i][symbol];
+              break;
+            }
+          }
+        }
+
         if (!base) return null;
+
         return {
-          label: displayName,
+          label: symbol,
           data: data.map(row => {
             const value = row[symbol];
             const percent = value && base ? ((value - base) / base) * 100 : null;
             return { x: row.date, y: percent };
           }).filter(p => p.y !== null),
-          borderColor: colorPalette[symbols.indexOf(symbol)],
+          borderColor: colorPalette[idx],
           borderWidth: 2,
           fill: false,
           tension: 0.2,
@@ -184,7 +178,6 @@
 
     function createChart(data) {
       const percentDatasets = getPercentChartData(data);
-
       if (percentChart) percentChart.destroy();
 
       percentChart = new Chart(percentCtx, {
@@ -211,9 +204,7 @@
                 usePointStyle: true,
                 pointStyle: 'line',
                 color: '#ccc',
-                font: {
-                  size: 12
-                }
+                font: { size: 12 }
               }
             }
           },
@@ -243,32 +234,21 @@
       updateChart();
     }
 
+    function setReferenceType(type, button) {
+      referenceType = type;
+      const buttons = document.querySelectorAll('.button-group:nth-of-type(2) button');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      updateChart();
+    }
+
     function updateChart() {
       const filteredData = filterDataByPeriod(currentPeriod);
       createChart(filteredData);
     }
 
-    function setupSymbolSelector() {
-      const container = document.getElementById('symbolSelector');
-      symbols.forEach(sym => {
-        const label = document.createElement('label');
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = sym;
-        checkbox.checked = true;
-        checkbox.onchange = () => {
-          selectedSymbols = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
-          updateChart();
-        };
-        label.appendChild(checkbox);
-        label.append(` ${sym}`);
-        container.appendChild(label);
-      });
-    }
-
     async function init() {
       await loadFromAPI();
-      setupSymbolSelector();
       updateChart();
     }
 
