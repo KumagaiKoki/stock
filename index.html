@@ -67,163 +67,173 @@
   </div>
 
   <script>
-    const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
-    const symbols = ["AAPL", "NVDA", "AMZN", "GOOGL", "MSFT", "SOXL"];
-    const displayNames = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
-    const colorPalette = ['#32d74b', '#0a84ff', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa'];
+  const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
+  const symbols = ["AAPL", "NVDA", "AMZN", "GOOGL", "MSFT", "SOXL"];
+  const displayNames = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
+  const colorPalette = ['#32d74b', '#0a84ff', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa'];
 
-    let allData = [];
-    let dateList = [];
+  let allData = [];
+  let detailedData = [];
+  let dateList = [];
+  let percentChart;
 
-    const percentCtx = document.getElementById('percentChart').getContext('2d');
-    let percentChart;
+  const percentCtx = document.getElementById('percentChart').getContext('2d');
 
-    async function fetchDailyData(symbol) {
-      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&outputsize=5000&apikey=${apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.status === "error") {
-        console.error(`APIエラー: ${data.message}`);
-        return [];
-      }
-      return data.values.map(entry => ({
-        date: entry.datetime,
-        close: parseFloat(entry.close)
-      })).reverse();
+  // 任意の間隔でデータ取得（例: 1day, 1h）
+  async function fetchData(symbol, interval = '1day', outputsize = 5000) {
+    const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status === "error") {
+      console.error(`APIエラー (${symbol}, ${interval}): ${data.message}`);
+      return [];
+    }
+    return data.values.map(entry => ({
+      date: entry.datetime,
+      close: parseFloat(entry.close)
+    })).reverse();
+  }
+
+  async function loadFromAPI() {
+    const allMap = {}, detailedMap = {};
+    const allDates = new Set(), detailedDates = new Set();
+
+    for (let sym of symbols) {
+      const [all, detailed] = await Promise.all([
+        fetchData(sym, '1day', 5000),
+        fetchData(sym, '1h', 720) // 約30日分（1h × 24h × 30日 = 720）
+      ]);
+
+      all.forEach(d => allDates.add(d.date));
+      detailed.forEach(d => detailedDates.add(d.date));
+      allMap[sym] = all;
+      detailedMap[sym] = detailed;
     }
 
-    async function loadFromAPI() {
-      const symbolDataMap = {};
-      const allDatesSet = new Set();
-
-      for (let i = 0; i < symbols.length; i++) {
-        const sym = symbols[i];
-        const data = await fetchDailyData(sym);
-        data.forEach(d => allDatesSet.add(d.date));
-        symbolDataMap[sym] = data;
-      }
-
-      // 共通日付リストの作成（昇順）
-      dateList = Array.from(allDatesSet).sort();
-
-      // 日付ごとのデータを構造化
-      allData = dateList.map(date => {
-        const row = { date };
-        symbols.forEach(sym => {
-          const found = symbolDataMap[sym].find(d => d.date === date);
-          row[sym] = found ? found.close : null;
-        });
-        return row;
+    // 日足: 構造化
+    dateList = Array.from(allDates).sort();
+    allData = dateList.map(date => {
+      const row = { date };
+      symbols.forEach(sym => {
+        const item = allMap[sym].find(d => d.date === date);
+        row[sym] = item ? item.close : null;
       });
+      return row;
+    });
+
+    // 詳細: 構造化
+    const detailedDateList = Array.from(detailedDates).sort();
+    detailedData = detailedDateList.map(date => {
+      const row = { date };
+      symbols.forEach(sym => {
+        const item = detailedMap[sym].find(d => d.date === date);
+        row[sym] = item ? item.close : null;
+      });
+      return row;
+    });
+  }
+
+  function filterDataByPeriod(period) {
+    if (period === '1m') {
+      return detailedData; // 詳細な時間足を使用
     }
 
-    function filterDataByPeriod(period) {
-      const now = new Date(dateList[dateList.length - 1]);
-      let startIndex = 0;
+    const now = new Date(dateList[dateList.length - 1]);
+    const getMonthsAgoDate = (months) => {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - months);
+      return d;
+    };
 
-      const getMonthsAgoDate = (months) => {
-        const d = new Date(now);
-        d.setMonth(d.getMonth() - months);
-        return d;
+    let startDate;
+    switch (period) {
+      case '3m': startDate = getMonthsAgoDate(3); break;
+      case '6m': startDate = getMonthsAgoDate(6); break;
+      case '1y': startDate = getMonthsAgoDate(12); break;
+      case '2y': startDate = getMonthsAgoDate(24); break;
+      case 'all': return allData;
+      default: return allData;
+    }
+
+    return allData.filter(d => new Date(d.date) >= startDate);
+  }
+
+  function getPercentChartData(data) {
+    return symbols.map((symbol, idx) => {
+      const base = data[0][symbol];
+      if (!base) return null;
+      return {
+        label: displayNames[idx],
+        data: data.map(row => {
+          const value = row[symbol];
+          const percent = value && base ? ((value - base) / base) * 100 : null;
+          return { x: row.date, y: percent };
+        }).filter(p => p.y !== null),
+        borderColor: colorPalette[idx % colorPalette.length],
+        borderWidth: 2,
+        fill: false,
+        tension: 0.2,
+        pointRadius: 0
       };
+    }).filter(d => d !== null);
+  }
 
-      let startDate;
-      switch (period) {
-        case '1m': startDate = getMonthsAgoDate(1); break;
-        case '3m': startDate = getMonthsAgoDate(3); break;
-        case '6m': startDate = getMonthsAgoDate(6); break;
-        case '1y': startDate = getMonthsAgoDate(12); break;
-        case '2y': startDate = getMonthsAgoDate(24); break;
-        case 'all': return allData;
-        default: return allData;
-      }
+  function createChart(data) {
+    const percentDatasets = getPercentChartData(data);
 
-      for (let i = 0; i < allData.length; i++) {
-        if (new Date(allData[i].date) >= startDate) {
-          startIndex = i;
-          break;
-        }
-      }
+    if (percentChart) percentChart.destroy();
 
-      return allData.slice(startIndex);
-    }
-
-    function getPercentChartData(data) {
-      return symbols.map((symbol, idx) => {
-        const base = data[0][symbol];
-        if (!base) return null;
-        return {
-          label: displayNames[idx],
-          data: data.map(row => {
-            const value = row[symbol];
-            const percent = value && base ? ((value - base) / base) * 100 : null;
-            return { x: row.date, y: percent };
-          }).filter(p => p.y !== null),
-          borderColor: colorPalette[idx % colorPalette.length],
-          borderWidth: 2,
-          fill: false,
-          tension: 0.2,
-          pointRadius: 0
-        };
-      }).filter(d => d !== null);
-    }
-
-    function createChart(data) {
-      const percentDatasets = getPercentChartData(data);
-
-      if (percentChart) percentChart.destroy();
-
-      percentChart = new Chart(percentCtx, {
-        type: 'line',
-        data: { datasets: percentDatasets },
-        options: {
-          responsive: true,
-          plugins: {
-            tooltip: {
-              mode: 'nearest',
-              intersect: false,
-              callbacks: {
-                label: ctx => {
-                  const val = ctx.parsed.y;
-                  return `${ctx.dataset.label}: ${(val >= 0 ? '+' : '')}${val.toFixed(2)}%`;
-                }
+    percentChart = new Chart(percentCtx, {
+      type: 'line',
+      data: { datasets: percentDatasets },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: {
+            mode: 'nearest',
+            intersect: false,
+            callbacks: {
+              label: ctx => {
+                const val = ctx.parsed.y;
+                return `${ctx.dataset.label}: ${(val >= 0 ? '+' : '')}${val.toFixed(2)}%`;
               }
-            },
-            legend: { display: false }
-          },
-          scales: {
-            x: {
-              type: 'time',
-              time: { unit: 'month', displayFormats: { month: 'M月' } },
-              ticks: { color: '#aaa' },
-              grid: { color: '#333' }
-            },
-            y: {
-              ticks: {
-                color: '#aaa',
-                callback: value => (value === 0 ? '±0%' : (value > 0 ? '+' : '') + value.toFixed(0) + '%')
-              },
-              grid: { color: '#333' }
             }
+          },
+          legend: { display: false }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: { displayFormats: { hour: 'M/d H時', day: 'M/d', month: 'M月' } },
+            ticks: { color: '#aaa' },
+            grid: { color: '#333' }
+          },
+          y: {
+            ticks: {
+              color: '#aaa',
+              callback: value => (value === 0 ? '±0%' : (value > 0 ? '+' : '') + value.toFixed(0) + '%')
+            },
+            grid: { color: '#333' }
           }
         }
-      });
-    }
+      }
+    });
+  }
 
-    async function init() {
-      await loadFromAPI();
-      const initialData = filterDataByPeriod('6m');
-      createChart(initialData);
-    }
+  async function init() {
+    await loadFromAPI();
+    const initialData = filterDataByPeriod('6m');
+    createChart(initialData);
+  }
 
-    function updateChart(period, button) {
-      document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
-      button.classList.add('active');
-      const filteredData = filterDataByPeriod(period);
-      createChart(filteredData);
-    }
+  function updateChart(period, button) {
+    document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+    button.classList.add('active');
+    const filteredData = filterDataByPeriod(period);
+    createChart(filteredData);
+  }
 
-    init();
-  </script>
+  init();
+</script>
 </body>
 </html>
