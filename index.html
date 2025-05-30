@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>変化率グラフ</title>
+  <title>Stock Performance</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
@@ -52,20 +52,20 @@
   </style>
 </head>
 <body>
-  <h2>変化率グラフ</h2>
+  <h2>Stock Performance Chart</h2>
 
   <div class="button-group">
-    <button onclick="changePeriod('1m', this)">1ヶ月</button>
-    <button onclick="changePeriod('3m', this)">3ヶ月</button>
-    <button onclick="changePeriod('6m', this)" class="active">6ヶ月</button>
-    <button onclick="changePeriod('1y', this)">1年</button>
-    <button onclick="changePeriod('2y', this)">2年</button>
-    <button onclick="changePeriod('all', this)">全期間</button>
+    <button onclick="changePeriod('1m', this)">1 month</button>
+    <button onclick="changePeriod('3m', this)">3 months</button>
+    <button onclick="changePeriod('6m', this)" class="active">6 months</button>
+    <button onclick="changePeriod('1y', this)">1 year</button>
+    <button onclick="changePeriod('2y', this)">2 years</button>
+    <button onclick="changePeriod('all', this)">All</button>
   </div>
 
   <div class="button-group">
-    <button onclick="setReferenceType('oldest', this)" class="active">最古を基準</button>
-    <button onclick="setReferenceType('latest', this)">最新を基準</button>
+    <button onclick="setReferenceType('oldest', this)" class="active">Based on Old</button>
+    <button onclick="setReferenceType('latest', this)">Based on Last</button>
   </div>
 
   <div class="card">
