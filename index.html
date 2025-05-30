@@ -79,7 +79,6 @@
 
   const percentCtx = document.getElementById('percentChart').getContext('2d');
 
-  // 任意の間隔でデータ取得（例: 1day, 1h）
   async function fetchData(symbol, interval = '1day', outputsize = 5000) {
     const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${apiKey}`;
     const response = await fetch(url);
@@ -101,7 +100,7 @@
     for (let sym of symbols) {
       const [all, detailed] = await Promise.all([
         fetchData(sym, '1day', 5000),
-        fetchData(sym, '1h', 720) // 約30日分（1h × 24h × 30日 = 720）
+        fetchData(sym, '1h', 800) // 約30〜33日分
       ]);
 
       all.forEach(d => allDates.add(d.date));
@@ -110,7 +109,7 @@
       detailedMap[sym] = detailed;
     }
 
-    // 日足: 構造化
+    // 日足データの構造化
     dateList = Array.from(allDates).sort();
     allData = dateList.map(date => {
       const row = { date };
@@ -121,8 +120,8 @@
       return row;
     });
 
-    // 詳細: 構造化
-    const detailedDateList = Array.from(detailedDates).sort();
+    // 詳細データ（1時間足）の構造化（昇順に並べる）
+    const detailedDateList = Array.from(detailedDates).sort((a, b) => new Date(a) - new Date(b));
     detailedData = detailedDateList.map(date => {
       const row = { date };
       symbols.forEach(sym => {
@@ -135,7 +134,7 @@
 
   function filterDataByPeriod(period) {
     if (period === '1m') {
-      return detailedData; // 詳細な時間足を使用
+      return detailedData; // 1ヶ月は1時間足
     }
 
     const now = new Date(dateList[dateList.length - 1]);
