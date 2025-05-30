@@ -72,16 +72,14 @@
     const displayNames = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
     const colorPalette = ['#32d74b', '#0a84ff', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa'];
 
-    let dailyData = [];
-    let sixHourData = [];
-    let dateListDaily = [];
-    let dateList6h = [];
+    let allData = [];
+    let dateList = [];
 
     const percentCtx = document.getElementById('percentChart').getContext('2d');
     let percentChart;
 
-    async function fetchData(symbol, interval) {
-      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=5000&apikey=${apiKey}`;
+    async function fetchDailyData(symbol) {
+      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&outputsize=5000&apikey=${apiKey}`;
       const response = await fetch(url);
       const data = await response.json();
       if (data.status === "error") {
@@ -94,40 +92,25 @@
       })).reverse();
     }
 
-    async function loadAllData() {
-      const dailyMap = {};
-      const sixHourMap = {};
-      const dateSetDaily = new Set();
-      const dateSet6h = new Set();
+    async function loadFromAPI() {
+      const symbolDataMap = {};
+      const allDatesSet = new Set();
 
       for (let i = 0; i < symbols.length; i++) {
         const sym = symbols[i];
-        const daily = await fetchData(sym, '1day');
-        const sixHour = await fetchData(sym, '6h');
-
-        daily.forEach(d => dateSetDaily.add(d.date));
-        sixHour.forEach(d => dateSet6h.add(d.date));
-
-        dailyMap[sym] = daily;
-        sixHourMap[sym] = sixHour;
+        const data = await fetchDailyData(sym);
+        data.forEach(d => allDatesSet.add(d.date));
+        symbolDataMap[sym] = data;
       }
 
-      dateListDaily = Array.from(dateSetDaily).sort();
-      dateList6h = Array.from(dateSet6h).sort();
+      // 共通日付リストの作成（昇順）
+      dateList = Array.from(allDatesSet).sort();
 
-      dailyData = dateListDaily.map(date => {
+      // 日付ごとのデータを構造化
+      allData = dateList.map(date => {
         const row = { date };
         symbols.forEach(sym => {
-          const found = dailyMap[sym].find(d => d.date === date);
-          row[sym] = found ? found.close : null;
-        });
-        return row;
-      });
-
-      sixHourData = dateList6h.map(date => {
-        const row = { date };
-        symbols.forEach(sym => {
-          const found = sixHourMap[sym].find(d => d.date === date);
+          const found = symbolDataMap[sym].find(d => d.date === date);
           row[sym] = found ? found.close : null;
         });
         return row;
@@ -135,11 +118,8 @@
     }
 
     function filterDataByPeriod(period) {
-      let dataSet = (period === '1m') ? sixHourData : dailyData;
-      let list = (period === '1m') ? dateList6h : dateListDaily;
-
-      const now = new Date(list[list.length - 1]);
-      let startDate;
+      const now = new Date(dateList[dateList.length - 1]);
+      let startIndex = 0;
 
       const getMonthsAgoDate = (months) => {
         const d = new Date(now);
@@ -147,17 +127,25 @@
         return d;
       };
 
+      let startDate;
       switch (period) {
         case '1m': startDate = getMonthsAgoDate(1); break;
         case '3m': startDate = getMonthsAgoDate(3); break;
         case '6m': startDate = getMonthsAgoDate(6); break;
         case '1y': startDate = getMonthsAgoDate(12); break;
         case '2y': startDate = getMonthsAgoDate(24); break;
-        case 'all': return dailyData;
-        default: return dailyData;
+        case 'all': return allData;
+        default: return allData;
       }
 
-      return dataSet.filter(row => new Date(row.date) >= startDate);
+      for (let i = 0; i < allData.length; i++) {
+        if (new Date(allData[i].date) >= startDate) {
+          startIndex = i;
+          break;
+        }
+      }
+
+      return allData.slice(startIndex);
     }
 
     function getPercentChartData(data) {
@@ -182,7 +170,9 @@
 
     function createChart(data) {
       const percentDatasets = getPercentChartData(data);
+
       if (percentChart) percentChart.destroy();
+
       percentChart = new Chart(percentCtx, {
         type: 'line',
         data: { datasets: percentDatasets },
@@ -221,7 +211,7 @@
     }
 
     async function init() {
-      await loadAllData();
+      await loadFromAPI();
       const initialData = filterDataByPeriod('6m');
       createChart(initialData);
     }
