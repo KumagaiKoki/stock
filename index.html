@@ -190,8 +190,12 @@
               }
             },
             legend: {
-              display: true, // ← ここを有効にする
+              display: true,
+              position: 'right',     // ← 右側に表示
+              align: 'start',        // ← 上から縦に並べる
               labels: {
+                usePointStyle: true, // ← ここを true にして line 風にする
+                pointStyle: 'line',  // ← 横線スタイル
                 color: '#ccc',
                 font: {
                   size: 12
