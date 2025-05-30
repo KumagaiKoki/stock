@@ -1,81 +1,57 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>変化率グラフ</title>
+  <meta charset="UTF-8">
+  <title>株価チャート（%表示）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
   <style>
     body {
-      margin: 0;
-      background-color: #1c1c1e;
-      color: white;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background-color: #111;
+      color: #eee;
+      font-family: sans-serif;
+      padding: 20px;
     }
-    h2 {
-      font-size: 16px;
-      font-weight: 600;
-      margin: 16px;
+    canvas {
+      background-color: #222;
+      border-radius: 8px;
     }
     .button-group {
-      display: flex;
-      justify-content: center;
-      margin: 8px 0;
+      margin: 20px 0;
     }
     .button-group button {
-      background: #2c2c2e;
+      margin-right: 10px;
+      padding: 6px 12px;
+      background-color: #333;
       color: #fff;
       border: none;
-      padding: 6px 12px;
-      margin: 0 4px;
-      border-radius: 10px;
-      font-size: 13px;
+      border-radius: 4px;
       cursor: pointer;
     }
     .button-group button.active {
-      background: #3a3a3c;
-      font-weight: bold;
-    }
-    canvas {
-      width: 100%;
-      height: 300px;
-    }
-    .card {
-      background-color: #2c2c2e;
-      margin: 0 16px;
-      border-radius: 12px;
-      padding: 16px;
+      background-color: #4caf50;
     }
   </style>
 </head>
 <body>
-  <h2>変化率グラフ（基準 = 最初の日）</h2>
-
+  <h2>株価チャート（%変化）</h2>
   <div class="button-group">
     <button onclick="updateChart('1m', this)">1ヶ月</button>
     <button onclick="updateChart('3m', this)">3ヶ月</button>
-    <button onclick="updateChart('6m', this)" class="active">6ヶ月</button>
+    <button onclick="updateChart('6m', this)">6ヶ月</button>
     <button onclick="updateChart('1y', this)">1年</button>
     <button onclick="updateChart('2y', this)">2年</button>
     <button onclick="updateChart('all', this)">全期間</button>
   </div>
-
-  <div class="card">
-    <canvas id="percentChart"></canvas>
-  </div>
+  <canvas id="percentChart" width="1000" height="500"></canvas>
 
   <script>
-    const apiKey = '8b308e8a86084cf2b1a7f4f56069685c';
-    const symbols = ["AAPL", "NVDA", "AMZN", "GOOGL", "MSFT", "SOXL"];
-    const displayNames = ["APPLE", "NVIDIA", "AMAZON", "GOOGLE", "マイクロソフト", "SOXL"];
-    const colorPalette = ['#32d74b', '#0a84ff', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa'];
-
-    let allData = [];
+    const apiKey = 'YOUR_TWELVE_DATA_API_KEY'; // ←ここにAPIキーを入力
+    const symbols = ['AAPL', 'MSFT', 'GOOGL']; // 表示する銘柄
     let dateList = [];
-
-    const percentCtx = document.getElementById('percentChart').getContext('2d');
+    let dailyData = [];
+    let hourly6hData = [];
     let percentChart;
 
     async function fetchDailyData(symbol) {
@@ -83,7 +59,21 @@
       const response = await fetch(url);
       const data = await response.json();
       if (data.status === "error") {
-        console.error(`APIエラー: ${data.message}`);
+        console.error(`APIエラー(日足): ${data.message}`);
+        return [];
+      }
+      return data.values.map(entry => ({
+        date: entry.datetime,
+        close: parseFloat(entry.close)
+      })).reverse();
+    }
+
+    async function fetch6hData(symbol) {
+      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=6h&outputsize=120&apikey=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === "error") {
+        console.error(`APIエラー(6h): ${data.message}`);
         return [];
       }
       return data.values.map(entry => ({
@@ -93,33 +83,48 @@
     }
 
     async function loadFromAPI() {
-      const symbolDataMap = {};
+      const symbolDailyMap = {};
+      const symbol6hMap = {};
       const allDatesSet = new Set();
 
-      for (let i = 0; i < symbols.length; i++) {
-        const sym = symbols[i];
-        const data = await fetchDailyData(sym);
-        data.forEach(d => allDatesSet.add(d.date));
-        symbolDataMap[sym] = data;
+      for (const sym of symbols) {
+        const daily = await fetchDailyData(sym);
+        const sixh = await fetch6hData(sym);
+
+        daily.forEach(d => allDatesSet.add(d.date));
+        symbolDailyMap[sym] = daily;
+        symbol6hMap[sym] = sixh;
       }
 
-      // 共通日付リストの作成（昇順）
       dateList = Array.from(allDatesSet).sort();
 
-      // 日付ごとのデータを構造化
-      allData = dateList.map(date => {
+      // 日足構造化
+      dailyData = dateList.map(date => {
         const row = { date };
-        symbols.forEach(sym => {
-          const found = symbolDataMap[sym].find(d => d.date === date);
+        for (const sym of symbols) {
+          const found = symbolDailyMap[sym].find(d => d.date === date);
           row[sym] = found ? found.close : null;
-        });
+        }
         return row;
       });
+
+      // 6時間足構造化
+      hourly6hData = [];
+      const len = symbol6hMap[symbols[0]].length;
+      for (let i = 0; i < len; i++) {
+        const row = { date: symbol6hMap[symbols[0]][i].date };
+        for (const sym of symbols) {
+          row[sym] = symbol6hMap[sym][i]?.close ?? null;
+        }
+        hourly6hData.push(row);
+      }
     }
 
     function filterDataByPeriod(period) {
+      if (period === '1m') return hourly6hData;
+
       const now = new Date(dateList[dateList.length - 1]);
-      let startIndex = 0;
+      let startDate;
 
       const getMonthsAgoDate = (months) => {
         const d = new Date(now);
@@ -127,53 +132,49 @@
         return d;
       };
 
-      let startDate;
       switch (period) {
-        case '1m': startDate = getMonthsAgoDate(1); break;
         case '3m': startDate = getMonthsAgoDate(3); break;
         case '6m': startDate = getMonthsAgoDate(6); break;
         case '1y': startDate = getMonthsAgoDate(12); break;
         case '2y': startDate = getMonthsAgoDate(24); break;
-        case 'all': return allData;
-        default: return allData;
+        case 'all': return dailyData;
+        default: return dailyData;
       }
 
-      for (let i = 0; i < allData.length; i++) {
-        if (new Date(allData[i].date) >= startDate) {
-          startIndex = i;
-          break;
-        }
-      }
-
-      return allData.slice(startIndex);
+      return dailyData.filter(row => new Date(row.date) >= startDate);
     }
 
     function getPercentChartData(data) {
-      return symbols.map((symbol, idx) => {
-        const base = data[0][symbol];
-        if (!base) return null;
+      const datasets = symbols.map(sym => {
+        const values = data.map(row => row[sym]);
+        const base = values.find(v => v !== null);
+        const percentValues = values.map(v => v != null && base ? (v / base - 1) * 100 : null);
         return {
-          label: displayNames[idx],
-          data: data.map(row => {
-            const value = row[symbol];
-            const percent = value && base ? ((value - base) / base) * 100 : null;
-            return { x: row.date, y: percent };
-          }).filter(p => p.y !== null),
-          borderColor: colorPalette[idx % colorPalette.length],
+          label: sym,
+          data: data.map((row, i) => ({ x: row.date, y: percentValues[i] })),
+          borderColor: getColor(sym),
           borderWidth: 2,
-          fill: false,
-          tension: 0.2,
-          pointRadius: 0
+          tension: 0.1,
+          spanGaps: true
         };
-      }).filter(d => d !== null);
+      });
+      return datasets;
     }
 
-    function createChart(data) {
-      const percentDatasets = getPercentChartData(data);
+    function getColor(symbol) {
+      const colorMap = {
+        AAPL: '#ff6384',
+        MSFT: '#36a2eb',
+        GOOGL: '#ffce56'
+      };
+      return colorMap[symbol] || '#aaa';
+    }
 
+    function createChart(data, period = '6m') {
+      const percentDatasets = getPercentChartData(data);
       if (percentChart) percentChart.destroy();
 
-      percentChart = new Chart(percentCtx, {
+      percentChart = new Chart(document.getElementById('percentChart'), {
         type: 'line',
         data: { datasets: percentDatasets },
         options: {
@@ -194,7 +195,10 @@
           scales: {
             x: {
               type: 'time',
-              time: { unit: 'month', displayFormats: { month: 'M月' } },
+              time: {
+                unit: period === '1m' ? 'day' : 'month',
+                displayFormats: { day: 'M/d', month: 'M月' }
+              },
               ticks: { color: '#aaa' },
               grid: { color: '#333' }
             },
@@ -210,17 +214,18 @@
       });
     }
 
-    async function init() {
-      await loadFromAPI();
-      const initialData = filterDataByPeriod('6m');
-      createChart(initialData);
-    }
-
     function updateChart(period, button) {
       document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
-      const filteredData = filterDataByPeriod(period);
-      createChart(filteredData);
+      const filtered = filterDataByPeriod(period);
+      createChart(filtered, period);
+    }
+
+    async function init() {
+      await loadFromAPI();
+      const initial = filterDataByPeriod('6m');
+      createChart(initial, '6m');
+      document.querySelector('.button-group button:nth-child(3)').classList.add('active');
     }
 
     init();
